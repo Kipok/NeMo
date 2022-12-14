@@ -801,86 +801,43 @@ class _TarredAudioToTextDataset(IterableDataset):
             world_size=world_size,
             global_rank=global_rank,
         )
-
-        # Put together WebDataset
-        self._dataset = wd.WebDataset(urls=audio_tar_filepaths, nodesplitter=None)
+        self._dataset = FileOpener(IterableWrapper(audio_tar_filepaths), mode="b").load_from_tar()
 
         if shuffle_n > 0:
-            self._dataset = self._dataset.shuffle(shuffle_n)
+            self._dataset = self._dataset.shuffle(buffer_size=shuffle_n)
         else:
-            logging.info("WebDataset will not shuffle files within the tar files.")
+            logging.info("shuffle_n=0 disables shuffle files within the tar files.")
 
-        self._dataset = (
-            self._dataset.rename(audio='wav;ogg;flac', key='__key__')
-            .to_tuple('audio', 'key')
-            .pipe(self._filter)
-            .pipe(self._loop_offsets)
-            .map(f=self._build_sample)
-        )
+        self._dataset = self._dataset.filter(self._filter, input_col=0)  # first element is filename
+        self._dataset = self._loop_offsets(self._dataset).map(self._build_sample)
 
-    def _filter(self, iterator):
+    def _filter(self, audio_filename):
         """This function is used to remove samples that have been filtered out by ASRAudioText already.
         Otherwise, we would get a KeyError as _build_sample attempts to find the manifest entry for a sample
         that was filtered out (e.g. for duration).
         Note that if using multi-GPU training, filtering may lead to an imbalance in samples in each shard,
         which may make your code hang as one process will finish before the other.
         """
+        file_id, _ = os.path.splitext(os.path.basename(audio_filename))
+        return file_id in self.manifest_processor.collection.mapping
 
-        class TarredAudioFilter:
-            def __init__(self, collection):
-                self.iterator = iterator
-                self.collection = collection
+    def _loop_offsets(self, source_dp):
+        def tarred_audio_loop_offsets():
+            for filepath, filecontent in source_dp:
+                filename = os.path.splitext(os.path.basename(filepath))[0]
+                for offset_id in range(len(self.manifest_processor.collection.mapping[filename])):
+                    yield filename, filecontent, offset_id
 
-            def __iter__(self):
-                return self
+        return IterableWrapper(tarred_audio_loop_offsets())
 
-            def __next__(self):
-                while True:
-                    audio_bytes, audio_filename = next(self.iterator)
-                    file_id, _ = os.path.splitext(os.path.basename(audio_filename))
-                    if file_id in self.collection.mapping:
-                        return audio_bytes, audio_filename
-
-        return TarredAudioFilter(self.manifest_processor.collection)
-
-    def _loop_offsets(self, iterator):
-        """This function is used to iterate through utterances with different offsets for each file.
-        """
-
-        class TarredAudioLoopOffsets:
-            def __init__(self, collection):
-                self.iterator = iterator
-                self.collection = collection
-                self.current_fn = None
-                self.current_bytes = None
-                self.offset_id = 0
-
-            def __iter__(self):
-                return self
-
-            def __next__(self):
-                if self.current_fn is None:
-                    self.current_bytes, self.current_fn = next(self.iterator)
-                    self.offset_id = 0
-                else:
-                    offset_list = self.collection.mapping[self.current_fn]
-                    if len(offset_list) == self.offset_id + 1:
-                        self.current_bytes, self.current_fn = next(self.iterator)
-                        self.offset_id = 0
-                    else:
-                        self.offset_id += 1
-
-                return self.current_bytes, self.current_fn, self.offset_id
-
-        return TarredAudioLoopOffsets(self.manifest_processor.collection)
 
     def _collate_fn(self, batch):
         return _speech_collate_fn(batch, self.pad_id)
 
     def _build_sample(self, tup):
-        """Builds the training sample by combining the data from the WebDataset with the manifest info.
+        """Builds the training sample by combining the data from the tar files with the manifest info.
         """
-        audio_bytes, audio_filename, offset_id = tup
+        audio_filename, audio_filestream, offset_id = tup
 
         # Grab manifest entry from self.manifest_preprocessor.collection
         file_id, _ = os.path.splitext(os.path.basename(audio_filename))
@@ -891,8 +848,6 @@ class _TarredAudioToTextDataset(IterableDataset):
         if offset is None:
             offset = 0
 
-        # Convert audio bytes to IO stream for processing (for SoundFile to read)
-        audio_filestream = io.BytesIO(audio_bytes)
         features = self.featurizer.process(
             audio_filestream,
             offset=offset,
