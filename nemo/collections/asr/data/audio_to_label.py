@@ -11,13 +11,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import io
 import os
 from typing import Dict, List, Optional, Union
 
-import braceexpand
 import torch
-import webdataset as wd
+from torchdata.datapipes.iter import FileOpener, IterableWrapper
 
 from nemo.collections.asr.data.audio_to_text import cache_datastore_manifests, expand_audio_filepaths
 from nemo.collections.asr.parts.preprocessing.segment import available_formats as valid_sf_formats
@@ -25,9 +23,6 @@ from nemo.collections.common.parts.preprocessing import collections
 from nemo.core.classes import Dataset, IterableDataset
 from nemo.core.neural_types import AudioSignal, LabelsType, LengthsType, NeuralType, RegressionValuesType
 from nemo.utils import logging
-
-# List of valid file formats (prioritized by order of importance)
-VALID_FILE_FORMATS = ';'.join(['wav', 'mp3', 'flac'] + [fmt.lower() for fmt in valid_sf_formats.keys()])
 
 
 def repeat_signal(signal: torch.Tensor, sig_len: int, required_length: int) -> torch.Tensor:
@@ -545,7 +540,6 @@ class _TarredAudioLabelDataset(IterableDataset):
         )
 
         self.file_occurence = count_occurence(self.collection.mapping)
-
         self.featurizer = featurizer
         self.trim = trim
 
@@ -560,82 +554,41 @@ class _TarredAudioLabelDataset(IterableDataset):
         for idx in range(len(self.labels[:5])):
             logging.debug(" label id {} and its mapped label {}".format(idx, self.id2label[idx]))
 
-        audio_tar_filepaths = expand_audio_filepaths(
+        audio_tar_filepaths = IterableWrapper(expand_audio_filepaths(
             audio_tar_filepaths=audio_tar_filepaths,
             shard_strategy=shard_strategy,
             world_size=world_size,
             global_rank=global_rank,
-        )
-        # Put together WebDataset
-        self._dataset = wd.WebDataset(urls=audio_tar_filepaths, nodesplitter=None)
+        ))
+        self._dataset = FileOpener(audio_tar_filepaths, mode="b").load_from_tar()
 
         if shuffle_n > 0:
-            self._dataset = self._dataset.shuffle(shuffle_n)
+            self._dataset = self._dataset.shuffle(buffer_size=shuffle_n)
         else:
-            logging.info("WebDataset will not shuffle files within the tar files.")
+            logging.info("shuffle_n=0 disables shuffle files within the tar files.")
 
-        self._dataset = (
-            self._dataset.rename(audio=VALID_FILE_FORMATS, key='__key__')
-            .to_tuple('audio', 'key')
-            .pipe(self._filter)
-            .map(f=self._build_sample)
-        )
+        self._dataset = self._filter_and_split_files(self._dataset).map(self._build_sample)
 
-    def _filter(self, iterator):
-        """This function is used to remove samples that have been filtered out by ASRSpeechLabel already.
-        Otherwise, we would get a KeyError as _build_sample attempts to find the manifest entry for a sample
-        that was filtered out (e.g. for duration).
-        Note that if using multi-GPU training, filtering may lead to an imbalance in samples in each shard,
-        which may make your code hang as one process will finish before the other.
-        """
+    def _filter_and_split_files(self, source_dp):
+        def filter_and_split_files_generator():
+            for tup in source_dp:
+                audio_filename, audio_filestream = tup
 
-        class TarredAudioFilter:
-            def __init__(self, collection, file_occurence):
-                self.iterator = iterator
-                self.collection = collection
-                self.file_occurence = file_occurence
-                self._iterable = self._internal_generator()
+                file_id = os.path.splitext(os.path.basename(audio_filename))[0]
+                if file_id in self.file_occurence:
+                    for j in range(self.file_occurence[file_id]):
+                        if j == 0:
+                            audio_filename = file_id
+                        else:
+                            audio_filename = f"{file_id}-sub{j}"
+                        yield audio_filename, audio_filestream
 
-            def __iter__(self):
-                self._iterable = self._internal_generator()
-                return self
-
-            def __next__(self):
-                try:
-                    values = next(self._iterable)
-                except StopIteration:
-                    # reset generator
-                    self._iterable = self._internal_generator()
-                    values = next(self._iterable)
-
-                return values
-
-            def _internal_generator(self):
-                """
-                WebDataset requires an Iterator, but we require an iterable that yields 1-or-more
-                values per value inside self.iterator.
-
-                Therefore wrap the iterator with a generator function that will yield 1-or-more
-                values per sample in the iterator.
-                """
-                for _, tup in enumerate(self.iterator):
-                    audio_bytes, audio_filename = tup
-
-                    file_id, _ = os.path.splitext(os.path.basename(audio_filename))
-                    if audio_filename in self.file_occurence:
-                        for j in range(0, self.file_occurence[file_id]):
-                            if j == 0:
-                                audio_filename = file_id
-                            else:
-                                audio_filename = file_id + "-sub" + str(j)
-                            yield audio_bytes, audio_filename
-
-        return TarredAudioFilter(self.collection, self.file_occurence)
+        return IterableWrapper(filter_and_split_files_generator())
 
     def _build_sample(self, tup):
         """Builds the training sample by combining the data from the WebDataset with the manifest info.
         """
-        audio_bytes, audio_filename = tup
+        audio_filename, audio_filestream = tup
         # Grab manifest entry from self.collection
         file_id, _ = os.path.splitext(os.path.basename(audio_filename))
 
@@ -646,13 +599,9 @@ class _TarredAudioLabelDataset(IterableDataset):
         if offset is None:
             offset = 0
 
-        # Convert audio bytes to IO stream for processing (for SoundFile to read)
-        audio_filestream = io.BytesIO(audio_bytes)
         features = self.featurizer.process(
             audio_filestream, offset=offset, duration=manifest_entry.duration, trim=self.trim,
         )
-
-        audio_filestream.close()
 
         # Audio features
         f, fl = features, torch.tensor(features.shape[0]).long()
