@@ -108,7 +108,7 @@ def ais_endpoint_to_dir(endpoint: str) -> str:
 
     Args:
         endpoint: AIStore endpoint in format https://host:port
-    
+
     Returns:
         Directory formed as `host/port`.
     """
@@ -172,7 +172,7 @@ def get_datastore_object(path: str, force: bool = False, num_retries: int = 5) -
         path: path to an object
         force: force download, even if a local file exists
         num_retries: number of retries if the get command fails
-    
+
     Returns:
         Local path of the object.
     """
@@ -281,23 +281,6 @@ class DataStoreObject:
         """
         description = f'{type(self)}: store_path={self.store_path}, local_path={self.local_path}'
         return description
-
-
-def datastore_path_to_webdataset_url(store_path: str):
-    """Convert store_path to a WebDataset URL.
-
-    Args:
-        store_path: path to buckets on store
-
-    Returns:
-        URL which can be directly used with WebDataset.
-    """
-    if store_path.startswith('ais://'):
-        url = f'pipe:ais get {store_path} - || true'
-    else:
-        raise ValueError(f'Unknown store path format: {store_path}')
-
-    return url
 
 
 def datastore_object_get(store_object: DataStoreObject) -> bool:

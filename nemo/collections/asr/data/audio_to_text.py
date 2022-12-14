@@ -21,7 +21,7 @@ from typing import Callable, Dict, Iterable, List, Optional, Tuple, Union
 import braceexpand
 import numpy as np
 import torch
-from torchdata.datapipes.iter import FileOpener, IterableWrapper, IterDataPipe
+from torchdata.datapipes.iter import FileOpener, IterableWrapper, AISFileLoader
 from torch.utils.data import ChainDataset
 from tqdm import tqdm
 
@@ -35,9 +35,9 @@ from nemo.utils import logging
 from nemo.utils.data_utils import (
     DataStoreObject,
     datastore_object_get,
-    datastore_path_to_webdataset_url,
     is_datastore_cache_shared,
     is_datastore_path,
+    ais_endpoint,
 )
 from nemo.utils.get_rank import is_global_rank_zero
 
@@ -192,11 +192,6 @@ def expand_audio_filepaths(audio_tar_filepaths, shard_strategy: str, world_size:
     if isinstance(audio_tar_filepaths, str):
         # Brace expand
         audio_tar_filepaths = list(braceexpand.braceexpand(audio_tar_filepaths))
-
-    # Expand store paths into WebDataset URLs
-    audio_tar_filepaths = [
-        datastore_path_to_webdataset_url(p) if is_datastore_path(p) else p for p in audio_tar_filepaths
-    ]
 
     # Check for distributed and partition shards accordingly
     if world_size > 1:
@@ -773,6 +768,8 @@ class _TarredAudioToTextDataset(IterableDataset):
         world_size: int = 0,
         return_sample_id: bool = False,
     ):
+        # assuming everything lives in the aistore if manifest is in aistore
+        self.ais_used = is_datastore_path(manifest_filepath)
         # If necessary, cache manifests from object store
         cache_datastore_manifests(manifest_filepaths=manifest_filepath)
 
@@ -801,7 +798,11 @@ class _TarredAudioToTextDataset(IterableDataset):
             world_size=world_size,
             global_rank=global_rank,
         )
-        self._dataset = FileOpener(IterableWrapper(audio_tar_filepaths), mode="b").load_from_tar()
+
+        if self.ais_used:
+            self._dataset = AISFileLoader(IterableWrapper(audio_tar_filepaths), url=ais_endpoint()).load_from_tar()
+        else:
+            self._dataset = FileOpener(IterableWrapper(audio_tar_filepaths), mode="b").load_from_tar()
 
         if shuffle_n > 0:
             self._dataset = self._dataset.shuffle(buffer_size=shuffle_n)
@@ -848,6 +849,10 @@ class _TarredAudioToTextDataset(IterableDataset):
         if offset is None:
             offset = 0
 
+        # this is only required for AIS to work, because it's content
+        # is not seekable and we need to pre-read it beforehand
+        if self.ais_used:
+            audio_filestream = io.BytesIO(audio_filestream.read())
         features = self.featurizer.process(
             audio_filestream,
             offset=offset,
