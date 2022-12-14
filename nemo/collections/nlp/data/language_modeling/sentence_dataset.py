@@ -22,7 +22,7 @@ from typing import Any
 
 import braceexpand
 import numpy as np
-import webdataset as wd
+from torchdata.datapipes.iter import FileOpener, IterableWrapper
 from torch.utils.data import IterableDataset
 
 from nemo.collections.nlp.data.data_utils.data_preprocessing import dataset_to_ids
@@ -259,22 +259,19 @@ class TarredSentenceDataset(IterableDataset):
 
         self.tarpath = text_tar_filepaths
 
-        # Put together WebDataset
-        self._dataset = wd.WebDataset(urls=text_tar_filepaths, nodesplitter=None)
+        self._dataset = FileOpener(IterableWrapper(text_tar_filepaths), mode="b").load_from_tar()
 
         if shuffle_n > 0:
-            self._dataset = self._dataset.shuffle(shuffle_n)
+            self._dataset = self._dataset.shuffle(buffer_size=shuffle_n)
         else:
-            logging.info("WebDataset will not shuffle files within the tar files.")
+            logging.info("shuffle_n=0 disables shuffle files within the tar files.")
 
-        self._dataset = self._dataset.rename(pkl='pkl', key='__key__').to_tuple('pkl', 'key').map(f=self._build_sample)
+        self._dataset = self._dataset.map(self._build_sample)
 
-    def _build_sample(self, fname):
+    def _build_sample(self, tup):
         # Load file
-        pkl_file, _ = fname
-        pkl_file = io.BytesIO(pkl_file)
+        pkl_file = tup[1]
         data = pickle.load(pkl_file)  # loads np.int64 vector
-        pkl_file.close()
         ids = data["src"]
         mask = (ids != self.pad_id).astype(np.int32)
         return ids, mask

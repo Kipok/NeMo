@@ -18,7 +18,7 @@ from typing import Optional
 
 import braceexpand
 import numpy as np
-import webdataset as wd
+from torchdata.datapipes.iter import FileOpener, IterableWrapper
 from torch.utils.data import Dataset, IterableDataset
 
 from nemo.collections.common.tokenizers.tokenizer_spec import TokenizerSpec
@@ -199,22 +199,19 @@ class TarredL2RLanguageModelingDataset(IterableDataset):
 
         self.tarpath = text_tar_filepaths
 
-        # Put together WebDataset
-        self._dataset = wd.WebDataset(urls=text_tar_filepaths, nodesplitter=None)
+        self._dataset = FileOpener(IterableWrapper(text_tar_filepaths), mode="b").load_from_tar()
 
         if shuffle_n > 0:
-            self._dataset = self._dataset.shuffle(shuffle_n)
+            self._dataset = self._dataset.shuffle(buffer_size=shuffle_n)
         else:
-            logging.info("WebDataset will not shuffle files within the tar files.")
+            logging.info("shuffle_n=0 disables shuffle files within the tar files.")
 
-        self._dataset = self._dataset.rename(npy='npy', key='__key__').to_tuple('npy', 'key').map(f=self._build_sample)
+        self._dataset = self._dataset.map(self._build_sample)
 
     def _build_sample(self, tup):
         # Load file
-        npy, filepath = tup
-        npy = io.BytesIO(npy)
+        _, npy = tup
         data = np.load(npy)  # loads np.int64 vector
-        npy.close()
 
         # Select random contiguous subsegment
         idx = np.random.randint(0, (len(data) - self.max_seq_length) // self.batch_step)
