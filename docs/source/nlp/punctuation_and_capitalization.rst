@@ -160,7 +160,7 @@ Tarred dataset
 Tokenization and encoding of data is quite costly for punctuation and capitalization task. If your dataset contains a
 lot of samples (~4M) you may use tarred dataset. A tarred dataset is a collection of `.tar` files which
 contain batches ready for passing into a model. Tarred dataset is not loaded into memory entirely, but in small pieces,
-which do not overflow memory. Tarred dataset relies on `webdataset <https://github.com/webdataset/webdataset>`_.
+which do not overflow memory. Tarred dataset relies on `TorchData <https://github.com/pytorch/data>`_.
 
 For creating of tarred dataset you will need data in NeMo format:
 
@@ -578,8 +578,7 @@ For convenience, items of data config are described in 4 tables:
    * - **tar_shuffle_n**
      - int
      - ``1``
-     - The size of shuffle buffer of `webdataset <https://github.com/webdataset/webdataset>`_. The number of batches
-       which are permuted.
+     - The size of shuffle buffer, i.e. the number of batches which are permuted.
    * - **shard_strategy**
      - string
      - ``scatter``

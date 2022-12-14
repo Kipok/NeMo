@@ -230,7 +230,7 @@ def get_concat_tarred_dataset(
     Args:
         config: Config of the TarredAudioToBPEDataset or TarredAudioToCharDataset.
         shuffle_n: How many samples to look ahead and load to be shuffled.
-            See WebDataset documentation for more details.
+            See TorchData documentation for more details.
         tokenizer: An instance of a TokenizerSpec object if BPE dataset is needed.
         global_rank: Global rank of this device.
         world_size: Global world size in the training method.
@@ -281,7 +281,7 @@ def get_tarred_dataset(
     Args:
         config: Config of the TarredAudioToBPEDataset or TarredAudioToCharDataset.
         shuffle_n: How many samples to look ahead and load to be shuffled.
-            See WebDataset documentation for more details.
+            See TorchData documentation for more details.
         tokenizer: An instance of a TokenizerSpec object if BPE dataset is needed.
         global_rank: Global rank of this device.
         world_size: Global world size in the training method.

@@ -21,7 +21,7 @@ from typing import Callable, Dict, Iterable, List, Optional, Tuple, Union
 import braceexpand
 import numpy as np
 import torch
-import webdataset as wd
+from torchdata.datapipes.iter import FileOpener, IterableWrapper, IterDataPipe
 from torch.utils.data import ChainDataset
 from tqdm import tqdm
 

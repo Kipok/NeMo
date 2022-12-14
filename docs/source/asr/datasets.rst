@@ -202,7 +202,7 @@ If experiments are run on a cluster with datasets stored on a distributed file s
 want to avoid constantly reading multiple small files and would prefer tarring their audio files.
 There are tarred versions of some NeMo ASR dataset classes for this case, such as the ``TarredAudioToCharDataset``
 (corresponding to the ``AudioToCharDataset``) and the ``TarredAudioToBPEDataset`` (corresponding to the
-``AudioToBPEDataset``). The tarred audio dataset classes in NeMo use `WebDataset <https://github.com/tmbdev/webdataset>`_.
+``AudioToBPEDataset``). The tarred audio dataset classes in NeMo use `TorchData <https://github.com/pytorch/data>`_.
 
 To use an existing tarred dataset instead of a non-tarred dataset, set ``is_tarred: true`` in
 the experiment config file. Then, pass in the paths to all of the audio tarballs in ``tarred_audio_filepaths``, either as a list

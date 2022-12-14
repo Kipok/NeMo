@@ -75,7 +75,7 @@ def get_tarred_classification_label_dataset(
     Args:
         config: Config of the TarredAudioToClassificationLabelDataset.
         shuffle_n: How many samples to look ahead and load to be shuffled.
-            See WebDataset documentation for more details.
+            See TorchData documentation for more details.
         global_rank: Global rank of this device.
         world_size: Global world size in the training method.
 
@@ -165,7 +165,7 @@ def get_tarred_speech_label_dataset(
     Args:
         config: Config of the TarredAudioToSpeechLabelDataset.
         shuffle_n: How many samples to look ahead and load to be shuffled.
-            See WebDataset documentation for more details.
+            See TorchData documentation for more details.
         global_rank: Global rank of this device.
         world_size: Global world size in the training method.
 
