@@ -50,15 +50,9 @@ from nemo.collections.asr.parts.preprocessing.segment import AudioSegment
 from nemo.collections.common.parts.preprocessing import collections, parsers
 from nemo.utils import logging
 
-# TODO @blisc: Perhaps refactor instead of import guarding
-HAVE_OMEGACONG_WEBDATASET = True
-try:
-    import webdataset as wd
-    from omegaconf import DictConfig, OmegaConf
-except ModuleNotFoundError:
-    from nemo.utils.exceptions import LightningNotInstalledException
+from torchdata.datapipes.iter import FileOpener, IterableWrapper
+from omegaconf import DictConfig, OmegaConf
 
-    HAVE_OMEGACONG_WEBDATASET = False
 
 
 try:
@@ -779,9 +773,9 @@ class TranscodePerturbation(Perturbation):
 
 class RandomSegmentPerturbation(Perturbation):
     """
-    Returns a random segment from input of duration "duration_sec". 
+    Returns a random segment from input of duration "duration_sec".
     If duration_sec > input audio length, pad_to_duration determines the outcome.
-    
+
     RandomSegmentPerturbation is intended for self-supervised learning.
     Not for supervised, as extracting corresponding text is not facilitated.
 
@@ -953,13 +947,10 @@ def process_augmentations(augmenter) -> Optional[AudioAugmentor]:
     if isinstance(augmenter, AudioAugmentor):
         return augmenter
 
-    augmenter_types = {dict}
-    if HAVE_OMEGACONG_WEBDATASET:
-        augmenter_types = {dict, DictConfig}
-    if not type(augmenter) in augmenter_types:
+    if not isinstance(augmenter, (dict, DictConfig)):
         raise ValueError("Cannot parse augmenter. Must be a dict or an AudioAugmentor object ")
 
-    if HAVE_OMEGACONG_WEBDATASET and isinstance(augmenter, DictConfig):
+    if isinstance(augmenter, DictConfig):
         augmenter = OmegaConf.to_container(augmenter, resolve=True)
 
     augmenter = copy.deepcopy(augmenter)
@@ -1028,16 +1019,13 @@ class AugmentationDataset(IterableDataset):
                 if bkey in tar_filepaths:
                     tar_filepaths = tar_filepaths.replace(bkey, "}")
 
-        if not HAVE_OMEGACONG_WEBDATASET:
-            raise LightningNotInstalledException(self)
-        self.audio_dataset = wd.WebDataset(urls=tar_filepaths, nodesplitter=None)
+        self.audio_dataset = FileOpener(IterableWrapper(tar_filepaths), mode="b").load_from_tar()
 
         if shuffle_n > 0:
-            self.audio_dataset = self.audio_dataset.shuffle(shuffle_n)
+            self._dataset = self._dataset.shuffle(buffer_size=shuffle_n)
         else:
-            logging.info("WebDataset will not shuffle files within the tar files.")
+            logging.info("shuffle_n=0 disables shuffle files within the tar files.")
 
-        self.audio_dataset = self.audio_dataset.rename(audio='wav', key='__key__').to_tuple('audio', 'key')
         self.audio_iter = iter(self.audio_dataset)
 
     def __len__(self):
@@ -1049,13 +1037,11 @@ class AugmentationDataset(IterableDataset):
     def __next__(self):
         while True:
             try:
-                audio_bytes, audio_filename = next(self.audio_iter)
+                audio_filename, audio_filestream = next(self.audio_iter)
 
             except StopIteration:
                 self.audio_iter = iter(self.audio_dataset)
-                audio_bytes, audio_filename = next(self.audio_iter)
+                audio_filename, audio_filestream = next(self.audio_iter)
             file_id, _ = os.path.splitext(os.path.basename(audio_filename))
 
-            # Convert audio bytes to IO stream for processing (for SoundFile to read)
-            audio_file = io.BytesIO(audio_bytes)
-            return audio_file, file_id
+            return audio_filestream, file_id

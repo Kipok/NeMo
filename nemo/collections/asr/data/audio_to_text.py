@@ -792,17 +792,19 @@ class _TarredAudioToTextDataset(IterableDataset):
         self.pad_id = pad_id
         self.return_sample_id = return_sample_id
 
-        audio_tar_filepaths = expand_audio_filepaths(
+        audio_tar_filepaths = IterableWrapper(expand_audio_filepaths(
             audio_tar_filepaths=audio_tar_filepaths,
             shard_strategy=shard_strategy,
             world_size=world_size,
             global_rank=global_rank,
-        )
+        ))
 
         if self.ais_used:
-            self._dataset = AISFileLoader(IterableWrapper(audio_tar_filepaths), url=ais_endpoint()).load_from_tar()
+            self._dataset = AISFileLoader(audio_tar_filepaths, url=ais_endpoint())
         else:
-            self._dataset = FileOpener(IterableWrapper(audio_tar_filepaths), mode="b").load_from_tar()
+            self._dataset = FileOpener(audio_tar_filepaths, mode="b")
+
+        self._dataset = self._dataset.load_from_tar()
 
         if shuffle_n > 0:
             self._dataset = self._dataset.shuffle(buffer_size=shuffle_n)
