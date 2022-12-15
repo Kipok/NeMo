@@ -699,7 +699,7 @@ class _TarredAudioToTextDataset(IterableDataset):
         augmentor (nemo.collections.asr.parts.perturb.AudioAugmentor): An AudioAugmentor
             object used to augment loaded audio
         shuffle_n (int): How many samples to look ahead and load to be shuffled.
-            See WebDataset documentation for more details.
+            See TorchData documentation for more details.
             Defaults to 0.
         min_duration (float): Dataset parameter.
             All training files which have a duration less than min_duration
@@ -728,7 +728,7 @@ class _TarredAudioToTextDataset(IterableDataset):
             If this is None, pads using 0s.
             Defaults to None.
         shard_strategy (str): Tarred dataset shard distribution strategy chosen as a str value during ddp.
-            -   `scatter`: The default shard strategy applied by WebDataset, where each node gets
+            -   `scatter`: The default shard strategy, where each node gets
                 a unique set of shards, which are permanently pre-allocated and never changed at runtime.
             -   `replicate`: Optional shard strategy, where each node gets all of the set of shards
                 available in the tarred dataset, which are permanently pre-allocated and never changed at runtime.
@@ -931,7 +931,7 @@ class TarredAudioToCharDataset(_TarredAudioToTextDataset):
         augmentor (nemo.collections.asr.parts.perturb.AudioAugmentor): An AudioAugmentor
             object used to augment loaded audio
         shuffle_n (int): How many samples to look ahead and load to be shuffled.
-            See WebDataset documentation for more details.
+            See TorchData documentation for more details.
             Defaults to 0.
         min_duration (float): Dataset parameter.
             All training files which have a duration less than min_duration
@@ -961,7 +961,7 @@ class TarredAudioToCharDataset(_TarredAudioToTextDataset):
             Defaults to None.
         shard_strategy (str): Tarred dataset shard distribution strategy chosen as a str value during ddp.
 
-            -   `scatter`: The default shard strategy applied by WebDataset, where each node gets
+            -   `scatter`: The default shard strategy, where each node gets
                 a unique set of shards, which are permanently pre-allocated and never changed at runtime.
             -   `replicate`: Optional shard strategy, where each node gets all of the set of shards
                 available in the tarred dataset, which are permanently pre-allocated and never changed at runtime.
@@ -1072,7 +1072,7 @@ class TarredAudioToBPEDataset(_TarredAudioToTextDataset):
         augmentor (nemo.collections.asr.parts.perturb.AudioAugmentor): An AudioAugmentor
             object used to augment loaded audio
         shuffle_n (int): How many samples to look ahead and load to be shuffled.
-            See WebDataset documentation for more details.
+            See TorchData documentation for more details.
             Defaults to 0.
         min_duration (float): Dataset parameter.
             All training files which have a duration less than min_duration
@@ -1092,7 +1092,7 @@ class TarredAudioToBPEDataset(_TarredAudioToTextDataset):
             Defaults to None.
         shard_strategy (str): Tarred dataset shard distribution strategy chosen as a str value during ddp.
 
-            -   `scatter`: The default shard strategy applied by WebDataset, where each node gets
+            -   `scatter`: The default shard strategy, where each node gets
                 a unique set of shards, which are permanently pre-allocated and never changed at runtime.
             -   `replicate`: Optional shard strategy, where each node gets all of the set of shards
                 available in the tarred dataset, which are permanently pre-allocated and never changed at runtime.

@@ -79,7 +79,7 @@ class PunctuationCapitalizationDataConfigBase:
     ###################################################
     use_audio: bool = False
     """
-    Whether to use audio or not. If set to True you should provide ``audio_file``.  
+    Whether to use audio or not. If set to True you should provide ``audio_file``.
     """
 
     audio_file: Optional[str] = None
@@ -94,7 +94,7 @@ class PunctuationCapitalizationDataConfigBase:
 
     use_bucketing: Optional[bool] = True
     """
-    Whether to pack samples into ``tokens_in_batch`` or not. Increases GPU utilization but may cause significant RAM consumption if used together with ``use_audio``. 
+    Whether to pack samples into ``tokens_in_batch`` or not. Increases GPU utilization but may cause significant RAM consumption if used together with ``use_audio``.
     """
 
     batch_size: Optional[int] = 32
@@ -183,11 +183,11 @@ class PunctuationCapitalizationDataConfigBase:
     """
 
     tar_shuffle_n: int = 1
-    """The size of shuffle buffer of `webdataset`. The number of batches which are permuted."""
+    """The size of shuffle buffer of `torchdata`. The number of batches which are permuted."""
 
     shard_strategy: Optional[str] = 'scatter'
     """Tarred dataset shard distribution strategy chosen as a str value during ddp. Accepted values are `scatter` and `replicate`.
-    `scatter`: The default shard strategy applied by WebDataset, where each node gets a unique set of shards, which are permanently
+    `scatter`: The default shard strategy, where each node gets a unique set of shards, which are permanently
     pre-allocated and never changed at runtime. `replicate` is an optional shard strategy, where each node gets the entire set of shards
     available in the tarred dataset, which are permanently pre-allocated and never changed at runtime. The benefit of replication is that
     it allows each node to sample data points from the entire dataset independently of other nodes, and reduces dependence on value of

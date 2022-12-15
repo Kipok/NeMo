@@ -105,10 +105,10 @@ class TarredL2RLanguageModelingDataset(IterableDataset):
             the text. By default, it is equal to max_seq_length which corresponds
             to splitting text into disjoint segments covering full dataset
         shuffle_n (int): How many samples to look ahead and load to be shuffled.
-            See WebDataset documentation for more details.
+            See TorchData documentation for more details.
             Defaults to 0.
         shard_strategy (str): Tarred dataset shard distribution strategy chosen as a str value during ddp.
-            -   `scatter`: The default shard strategy applied by WebDataset, where each node gets
+            -   `scatter`: The default shard strategy, where each node gets
                 a unique set of shards, which are permanently pre-allocated and never changed at runtime.
             -   `replicate`: Optional shard strategy, where each node gets all of the set of shards
                 available in the tarred dataset, which are permanently pre-allocated and never changed at runtime.

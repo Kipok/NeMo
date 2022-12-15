@@ -586,7 +586,7 @@ class _TarredAudioLabelDataset(IterableDataset):
         return IterableWrapper(filter_and_split_files_generator())
 
     def _build_sample(self, tup):
-        """Builds the training sample by combining the data from the WebDataset with the manifest info.
+        """Builds the training sample by combining the data from the tar files with the manifest info.
         """
         audio_filename, audio_filestream = tup
         # Grab manifest entry from self.collection
@@ -652,7 +652,7 @@ class TarredAudioToClassificationLabelDataset(_TarredAudioLabelDataset):
             List of target classes that can be output by the speaker recognition model.
         featurizer
         shuffle_n (int): How many samples to look ahead and load to be shuffled.
-            See WebDataset documentation for more details.
+            See TorchData documentation for more details.
             Defaults to 0.
         min_duration (float): Dataset parameter.
             All training files which have a duration less than min_duration
@@ -666,7 +666,7 @@ class TarredAudioToClassificationLabelDataset(_TarredAudioLabelDataset):
             of audio signal using librosa.effects.trim().
             Defaults to False.
         shard_strategy (str): Tarred dataset shard distribution strategy chosen as a str value during ddp.
-            -   `scatter`: The default shard strategy applied by WebDataset, where each node gets
+            -   `scatter`: The default shard strategy, where each node gets
                 a unique set of shards, which are permanently pre-allocated and never changed at runtime.
             -   `replicate`: Optional shard strategy, where each node gets all of the set of shards
                 available in the tarred dataset, which are permanently pre-allocated and never changed at runtime.
@@ -727,7 +727,7 @@ class TarredAudioToSpeechLabelDataset(_TarredAudioLabelDataset):
             List of target classes that can be output by the speaker recognition model.
         featurizer
         shuffle_n (int): How many samples to look ahead and load to be shuffled.
-            See WebDataset documentation for more details.
+            See TorchData documentation for more details.
             Defaults to 0.
         min_duration (float): Dataset parameter.
             All training files which have a duration less than min_duration
@@ -744,7 +744,7 @@ class TarredAudioToSpeechLabelDataset(_TarredAudioLabelDataset):
         shift_length_in_sec (float): amount of shift of window for generating the frame for VAD task. in a batch # Pass this only for VAD task during inference.
         normalize_audio (bool): Whether to normalize audio signal. Defaults to False.
         shard_strategy (str): Tarred dataset shard distribution strategy chosen as a str value during ddp.
-            -   `scatter`: The default shard strategy applied by WebDataset, where each node gets
+            -   `scatter`: The default shard strategy, where each node gets
                 a unique set of shards, which are permanently pre-allocated and never changed at runtime.
             -   `replicate`: Optional shard strategy, where each node gets all of the set of shards
                 available in the tarred dataset, which are permanently pre-allocated and never changed at runtime.

@@ -49,6 +49,9 @@ WORKDIR /tmp/torchaudio_build
 COPY scripts/installers /tmp/torchaudio_build/scripts/installers/
 RUN /bin/bash /tmp/torchaudio_build/scripts/installers/install_torchaudio_latest.sh
 
+# install torchdata without depencencies (to avoid pytorch reinstallation)
+RUN pip install torchdata --no-deps
+
 # install nemo dependencies
 WORKDIR /tmp/nemo
 COPY requirements .
