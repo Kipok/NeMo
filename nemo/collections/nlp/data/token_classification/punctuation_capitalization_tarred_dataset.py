@@ -26,7 +26,7 @@ from typing import Any, Callable, Dict, Iterator, List, Optional, Set, Tuple, Ty
 
 import numpy as np
 import torch
-import webdataset as wds
+# import webdataset as wds
 from joblib import Parallel, delayed
 from omegaconf import DictConfig
 from torch.utils.data import IterableDataset
