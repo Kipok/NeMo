@@ -15,7 +15,12 @@ import os
 from typing import Dict, List, Optional, Union
 
 import torch
-from torchdata.datapipes.iter import FileOpener, IterableWrapper
+try:
+    from torchdata.datapipes.iter import FileOpener, IterableWrapper
+    TORCHDATA_INSTALLED = True
+except ImportError:
+    TORCHDATA_INSTALLED = False
+import webdataset as wd
 
 from nemo.collections.asr.data.audio_to_text import cache_datastore_manifests, expand_audio_filepaths
 from nemo.collections.asr.parts.preprocessing.segment import available_formats as valid_sf_formats
