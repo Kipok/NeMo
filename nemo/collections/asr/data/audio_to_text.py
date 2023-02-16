@@ -21,13 +21,7 @@ from typing import Callable, Dict, Iterable, List, Optional, Tuple, Union
 import braceexpand
 import numpy as np
 import torch
-try:
-    from torchdata.datapipes.iter import FileOpener, IterableWrapper, AISFileLoader
-    TORCHDATA_INSTALLED = True
-except ImportError:
-    TORCHDATA_INSTALLED = False
-import webdataset as wd
-
+from torchdata.datapipes.iter import FileOpener, IterableWrapper, AISFileLoader
 from torch.utils.data import ChainDataset
 from tqdm import tqdm
 
@@ -798,33 +792,27 @@ class _TarredAudioToTextDataset(IterableDataset):
         self.pad_id = pad_id
         self.return_sample_id = return_sample_id
 
-        audio_tar_filepaths = expand_audio_filepaths(
+        audio_tar_filepaths = IterableWrapper(expand_audio_filepaths(
             audio_tar_filepaths=audio_tar_filepaths,
             shard_strategy=shard_strategy,
             world_size=world_size,
             global_rank=global_rank,
-        )
+        ))
 
-        if TORCHDATA_INSTALLED:
-            audio_tar_filepaths = IterableWrapper(audio_tar_filepaths)
-
-            if self.ais_used:
-                self._dataset = AISFileLoader(audio_tar_filepaths, url=ais_endpoint())
-            else:
-                self._dataset = FileOpener(audio_tar_filepaths, mode="b")
-
-            self._dataset = self._dataset.load_from_tar()
-
-            if shuffle_n > 0:
-                self._dataset = self._dataset.shuffle(buffer_size=shuffle_n)
-            else:
-                logging.info("shuffle_n=0 disables shuffle files within the tar files.")
-
-            self._dataset = self._dataset.filter(self._filter, input_col=0)  # first element is filename
-            self._dataset = self._loop_offsets(self._dataset).map(self._build_sample)
+        if self.ais_used:
+            self._dataset = AISFileLoader(audio_tar_filepaths, url=ais_endpoint())
         else:
-            
+            self._dataset = FileOpener(audio_tar_filepaths, mode="b")
 
+        self._dataset = self._dataset.load_from_tar()
+
+        if shuffle_n > 0:
+            self._dataset = self._dataset.shuffle(buffer_size=shuffle_n)
+        else:
+            logging.info("shuffle_n=0 disables shuffle files within the tar files.")
+
+        self._dataset = self._dataset.filter(self._filter, input_col=0)  # first element is filename
+        self._dataset = self._loop_offsets(self._dataset).map(self._build_sample)
 
     def _filter(self, audio_filename):
         """This function is used to remove samples that have been filtered out by ASRAudioText already.
