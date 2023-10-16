@@ -1,7 +1,7 @@
 pipeline {
   agent {
         docker {
-          image 'nvcr.io/nvidia/pytorch:23.08-py3'
+          image 'nvcr.io/nvidia/pytorch:23.09-py3'
           args '--device=/dev/nvidia0 --gpus all --user 0:128 -v /home/TestData:/home/TestData -v $HOME/.cache:/root/.cache --shm-size=8g --env TRANSFORMERS_OFFLINE=1 --env HYDRA_FULL_ERROR=1'
         }
   }
@@ -97,8 +97,8 @@ pipeline {
     stage('L0: Unit Tests CPU') {
       when {
         anyOf {
-          branch 'r1.21.0'
-          changeRequest target: 'r1.21.0'
+          branch 'main'
+          changeRequest target: 'main'
         }
       }
       steps {
@@ -111,25 +111,38 @@ pipeline {
     stage('L2: Community LLM Checkpoints tests') {
       when {
         anyOf {
-          branch 'r1.21.0'
-          changeRequest target: 'r1.21.0'
+          branch 'main'
+          changeRequest target: 'main'
         }
       }
       failFast true
-      steps {
-        sh 'CUDA_VISIBLE_DEVICES=0 python scripts/nlp_language_modeling/convert_hf_llama_to_nemo.py \
-        --in-file=/home/TestData/nlp/megatron_llama/llama-ci-hf \
-        --out-file=/home/TestData/nlp/megatron_llama/ci.nemo \
-        --precision=16'
-        sh 'rm -f /home/TestData/nlp/megatron_llama/ci.nemo'
+      parallel {
+        stage('Llama') {
+          steps {
+            sh 'CUDA_VISIBLE_DEVICES=0 python scripts/nlp_language_modeling/convert_hf_llama_to_nemo.py \
+            --in-file=/home/TestData/nlp/megatron_llama/llama-ci-hf \
+            --out-file=/home/TestData/nlp/megatron_llama/ci.nemo \
+            --precision=16'
+            sh 'rm -f /home/TestData/nlp/megatron_llama/ci.nemo'
+          }
+        }
+        stage('StarCoder') {
+          steps {
+            sh 'python scripts/nlp_language_modeling/convert_starcoder_hf_to_nemo.py \
+            --config examples/nlp/language_modeling/conf/megatron_gpt_config.yaml \
+            --input /home/TestData/nlp/megatron_gpt/starcoder-ci-hf \
+            --output /home/TestData/nlp/megatron_gpt/starcoder-ci-hf'
+            sh 'rm -f /home/TestData/nlp/megatron_gpt/starcoder-ci-hf/megatron_starcoder_tp1_pp1.nemo'
+          }
+        }
       }
     }
 
     stage('L2: ASR dev run') {
       when {
         anyOf {
-          branch 'r1.21.0'
-          changeRequest target: 'r1.21.0'
+          branch 'main'
+          changeRequest target: 'main'
         }
       }
       failFast true
@@ -232,8 +245,8 @@ pipeline {
     stage('L2: ASR dev run - part two') {
       when {
         anyOf {
-          branch 'r1.21.0'
-          changeRequest target: 'r1.21.0'
+          branch 'main'
+          changeRequest target: 'main'
         }
       }
       failFast true
@@ -262,8 +275,8 @@ pipeline {
     stage('L2: Speech to Text EMA') {
       when {
         anyOf {
-          branch 'r1.21.0'
-          changeRequest target: 'r1.21.0'
+          branch 'main'
+          changeRequest target: 'main'
         }
       }
       steps {
@@ -283,8 +296,8 @@ pipeline {
     stage('L2: Speaker dev run') {
       when {
         anyOf {
-          branch 'r1.21.0'
-          changeRequest target: 'r1.21.0'
+          branch 'main'
+          changeRequest target: 'main'
         }
       }
       failFast true
@@ -406,8 +419,8 @@ pipeline {
     // stage('L2: ASR DALI dev run') {
     //   when {
     //     anyOf {
-    //       branch 'r1.21.0'
-    //       changeRequest target: 'r1.21.0'
+    //       branch 'main'
+    //       changeRequest target: 'main'
     //     }
     //   }
     //   failFast true
@@ -474,8 +487,8 @@ pipeline {
     // stage('L2: ASR RNNT dev run') {
     //   when {
     //     anyOf {
-    //       branch 'r1.21.0'
-    //       changeRequest target: 'r1.21.0'
+    //       branch 'main'
+    //       changeRequest target: 'main'
     //     }
     //   }
     //   failFast true
@@ -536,8 +549,8 @@ pipeline {
     // stage('L2: Hybrid ASR RNNT-CTC dev run') {
     //   when {
     //     anyOf {
-    //       branch 'r1.21.0'
-    //       changeRequest target: 'r1.21.0'
+    //       branch 'main'
+    //       changeRequest target: 'main'
     //     }
     //   }
     //   failFast true
@@ -566,8 +579,8 @@ pipeline {
     stage('L2: ASR Multi-dataloader dev run') {
       when {
         anyOf {
-          branch 'r1.21.0'
-          changeRequest target: 'r1.21.0'
+          branch 'main'
+          changeRequest target: 'main'
         }
       }
       failFast true
@@ -614,8 +627,8 @@ pipeline {
     stage('L2: ASR Adapters') {
       when {
         anyOf {
-          branch 'r1.21.0'
-          changeRequest target: 'r1.21.0'
+          branch 'main'
+          changeRequest target: 'main'
         }
       }
       failFast true
@@ -656,194 +669,12 @@ pipeline {
 
       }
     }
-    // commented out temporarily to save time on github ci
-    //stage('L2: Megatron T5 Adapter PP=2') {
-    //  when {
-    //    anyOf {
-    //      branch 'r1.21.0'
-    //      changeRequest target: 'r1.21.0'
-    //    }
-    //  }
-    //  failFast true
-    //  parallel{
-    //    stage('T5 Adapter tuning & inference TP=1 PP=2') {
-    //      steps {
-    //        sh "python examples/nlp/language_modeling/tuning/megatron_t5_adapter_tuning.py \
-    //            --config-name=megatron_t5_adapter_tuning_config \
-    //            name='test_tp1_pp2' \
-    //            exp_manager.exp_dir='examples/adapter_tuning' \
-    //            trainer.devices=2 \
-    //            trainer.max_steps=1 \
-    //            trainer.val_check_interval=1 \
-    //            trainer.max_epochs=null \
-    //            model.data.num_workers=1 \
-    //            model.tensor_model_parallel_size=1 \
-    //            model.pipeline_model_parallel_size=2 \
-    //            model.language_model_path='/home/TestData/nlp/megatron_t5/8m/megatron_t5_8m_tp1_pp2.nemo' \
-    //            model.existing_tasks=[] \
-    //            model.new_tasks=['rte'] \
-    //            model.data.train_ds=['/home/TestData/nlp/prompt_learning/rte_CI_test.jsonl'] \
-    //            model.data.validation_ds=['/home/TestData/nlp/prompt_learning/rte_CI_test.jsonl'] \
-    //            model.global_batch_size=4"
-    //        sh "python examples/nlp/language_modeling/tuning/megatron_t5_adapter_eval.py \
-    //            --config-name=megatron_t5_adapter_inference \
-    //            adapter_model_file='examples/adapter_tuning/test_tp1_pp2.nemo' \
-    //            language_model_path='/home/TestData/nlp/megatron_t5/8m/megatron_t5_8m_tp1_pp2.nemo' \
-    //            trainer.devices=2 \
-    //            data.num_workers=1 \
-    //            tensor_model_parallel_size=1 \
-    //            pipeline_model_parallel_size=2 \
-    //            data.global_batch_size=2 \
-    //            data.micro_batch_size=2 \
-    //            data.test_ds=['/home/TestData/nlp/prompt_learning/rte_CI_test.jsonl'] \
-    //            pred_file_path='examples/adapter_tuning/test_tp1_pp2/preds.txt'"
-    //        sh "rm -rf examples/adapter_tuning/test_tp1_pp2.nemo"
-    //        sh "rm -rf examples/adapter_tuning/test_tp1_pp2"
-    //      }
-    //    }
-    //  }
-    //}
-    //stage('L2: Megatron T5 Adapter TP=2') {
-    //  when {
-    //    anyOf {
-    //      branch 'r1.21.0'
-    //      changeRequest target: 'r1.21.0'
-    //    }
-    //  }
-    //  failFast true
-    //  parallel{
-    //    stage('T5 Adapter tuning & inference TP=2 PP=1') {
-    //      steps {
-    //        sh "python examples/nlp/language_modeling/tuning/megatron_t5_adapter_tuning.py \
-    //            --config-name=megatron_t5_adapter_tuning_config \
-    //            name='test_tp2_pp1' \
-    //            exp_manager.exp_dir='examples/adapter_tuning' \
-    //            trainer.devices=2 \
-    //            trainer.max_steps=1 \
-    //            trainer.val_check_interval=1 \
-    //            trainer.max_epochs=null \
-    //            model.data.num_workers=1 \
-    //            model.tensor_model_parallel_size=2 \
-    //            model.language_model_path='/home/TestData/nlp/megatron_t5/8m/megatron_t5_8m_tp2.nemo' \
-    //            model.existing_tasks=[] \
-    //            model.new_tasks=['rte'] \
-    //            model.data.train_ds=['/home/TestData/nlp/prompt_learning/rte_CI_test.jsonl'] \
-    //            model.data.validation_ds=['/home/TestData/nlp/prompt_learning/rte_CI_test.jsonl'] \
-    //            model.global_batch_size=4"
-    //        sh "python examples/nlp/language_modeling/tuning/megatron_t5_adapter_eval.py \
-    //            --config-name=megatron_t5_adapter_inference \
-    //            adapter_model_file='examples/adapter_tuning/test_tp2_pp1.nemo' \
-    //            language_model_path='/home/TestData/nlp/megatron_t5/8m/megatron_t5_8m_tp2.nemo' \
-    //            trainer.devices=2 \
-    //            tensor_model_parallel_size=2 \
-    //            data.global_batch_size=2 \
-    //            data.micro_batch_size=2 \
-    //            data.num_workers=1 \
-    //            data.test_ds=['/home/TestData/nlp/prompt_learning/rte_CI_test.jsonl'] \
-    //            pred_file_path='examples/adapter_tuning/test_tp2_pp1/preds.txt'"
-    //        sh "rm -rf examples/adapter_tuning/test_tp2_pp1.nemo"
-    //        sh "rm -rf examples/adapter_tuning/test_tp2_pp1"
-    //      }
-    //    }
-    //  }
-    //}
-    stage('L2: Megatron T5 IA3 PP=2') {
-      when {
-        anyOf {
-          branch 'r1.21.0'
-          changeRequest target: 'r1.21.0'
-        }
-      }
-      failFast true
-      parallel{
-        stage('T5 IA3 tuning & inference TP=1 PP=2') {
-          steps {
-            sh "python examples/nlp/language_modeling/tuning/megatron_t5_ia3_tuning.py \
-                --config-name=megatron_t5_ia3_tuning_config \
-                name='test_tp1_pp2' \
-                exp_manager.exp_dir='examples/ia3_tuning' \
-                trainer.devices=2 \
-                trainer.max_steps=1 \
-                trainer.val_check_interval=1 \
-                trainer.max_epochs=null \
-                model.data.num_workers=1 \
-                model.tensor_model_parallel_size=1 \
-                model.pipeline_model_parallel_size=2 \
-                model.language_model_path='/home/TestData/nlp/megatron_t5/8m/megatron_t5_8m_tp1_pp2.nemo' \
-                model.existing_tasks=[] \
-                model.new_tasks=['rte'] \
-                model.data.train_ds=['/home/TestData/nlp/prompt_learning/rte_CI_test.jsonl'] \
-                model.data.validation_ds=['/home/TestData/nlp/prompt_learning/rte_CI_test.jsonl'] \
-                model.global_batch_size=4"
-            // TODO: @eharper temporarily comment while investigating how to fix
-            // sh "python examples/nlp/language_modeling/tuning/megatron_t5_ia3_eval.py \
-            //     --config-name=megatron_t5_ia3_inference \
-            //     adapter_model_file='examples/ia3_tuning/test_tp1_pp2.nemo' \
-            //     language_model_path='/home/TestData/nlp/megatron_t5/8m/megatron_t5_8m_tp1_pp2.nemo' \
-            //     trainer.devices=2 \
-            //     data.num_workers=1 \
-            //     tensor_model_parallel_size=1 \
-            //     pipeline_model_parallel_size=2 \
-            //     data.global_batch_size=2 \
-            //     data.micro_batch_size=2 \
-            //     data.test_ds=['/home/TestData/nlp/prompt_learning/rte_CI_test.jsonl'] \
-            //     pred_file_path='examples/ia3_tuning/test_tp1_pp2/preds.txt'"
-            sh "rm -rf examples/ia3_tuning/test_tp1_pp2.nemo"
-            sh "rm -rf examples/ia3_tuning/test_tp1_pp2"
-          }
-        }
-      }
-    }
-    stage('L2: Megatron T5 IA3 TP=2') {
-      when {
-        anyOf {
-          branch 'r1.21.0'
-          changeRequest target: 'r1.21.0'
-        }
-      }
-      failFast true
-      parallel{
-        stage('T5 IA3 tuning & inference TP=2 PP=1') {
-          steps {
-            sh "python examples/nlp/language_modeling/tuning/megatron_t5_ia3_tuning.py \
-                --config-name=megatron_t5_ia3_tuning_config \
-                name='test_tp2_pp1' \
-                exp_manager.exp_dir='examples/ia3_tuning' \
-                trainer.devices=2 \
-                trainer.max_steps=1 \
-                trainer.val_check_interval=1 \
-                trainer.max_epochs=null \
-                model.data.num_workers=1 \
-                model.tensor_model_parallel_size=2 \
-                model.language_model_path='/home/TestData/nlp/megatron_t5/8m/megatron_t5_8m_tp2.nemo' \
-                model.existing_tasks=[] \
-                model.new_tasks=['rte'] \
-                model.data.train_ds=['/home/TestData/nlp/prompt_learning/rte_CI_test.jsonl'] \
-                model.data.validation_ds=['/home/TestData/nlp/prompt_learning/rte_CI_test.jsonl'] \
-                model.global_batch_size=4"
-            sh "python examples/nlp/language_modeling/tuning/megatron_t5_ia3_eval.py \
-                --config-name=megatron_t5_ia3_inference \
-                adapter_model_file='examples/ia3_tuning/test_tp2_pp1.nemo' \
-                language_model_path='/home/TestData/nlp/megatron_t5/8m/megatron_t5_8m_tp2.nemo' \
-                trainer.devices=2 \
-                data.num_workers=1 \
-                tensor_model_parallel_size=2 \
-                data.global_batch_size=2 \
-                data.micro_batch_size=2 \
-                data.test_ds=['/home/TestData/nlp/prompt_learning/rte_CI_test.jsonl'] \
-                pred_file_path='examples/ia3_tuning/test_tp2_pp1/preds.txt'"
-            sh "rm -rf examples/ia3_tuning/test_tp2_pp1.nemo"
-            sh "rm -rf examples/ia3_tuning/test_tp2_pp1"
-          }
-        }
-      }
-    }
 
     stage('L2: Speech Transcription') {
       when {
         anyOf {
-          branch 'r1.21.0'
-          changeRequest target: 'r1.21.0'
+          branch 'main'
+          changeRequest target: 'main'
         }
       }
       failFast true
@@ -863,8 +694,8 @@ pipeline {
     stage('L2: Transducer alignment') {
       when {
         anyOf {
-          branch 'r1.21.0'
-          changeRequest target: 'r1.21.0'
+          branch 'main'
+          changeRequest target: 'main'
         }
       }
       failFast true
@@ -880,8 +711,8 @@ pipeline {
     stage('L2: Segmentation Tool') {
       when {
             anyOf {
-              branch 'r1.21.0'
-              changeRequest target: 'r1.21.0'
+              branch 'main'
+              changeRequest target: 'main'
             }
       }
       stages {
@@ -936,8 +767,8 @@ pipeline {
     stage('L2: G2P Models') {
       when {
         anyOf {
-          branch 'r1.21.0'
-          changeRequest target: 'r1.21.0'
+          branch 'main'
+          changeRequest target: 'main'
         }
       }
       failFast true
@@ -1018,8 +849,8 @@ pipeline {
     // stage('L2: Multi-GPU Megatron finetuning') {
     //   when {
     //     anyOf {
-    //       branch 'r1.21.0'
-    //       changeRequest target: 'r1.21.0'
+    //       branch 'main'
+    //       changeRequest target: 'main'
     //     }
     //   }
     //   failFast true
@@ -1045,8 +876,8 @@ pipeline {
     stage('L2: STS-b') {
       when {
         anyOf {
-          branch 'r1.21.0'
-          changeRequest target: 'r1.21.0'
+          branch 'main'
+          changeRequest target: 'main'
         }
       }
       failFast true
@@ -1105,8 +936,8 @@ pipeline {
     stage('L2: Dialogue Classification') {
       when {
         anyOf {
-          branch 'r1.21.0'
-          changeRequest target: 'r1.21.0'
+          branch 'main'
+          changeRequest target: 'main'
         }
       }
       failFast true
@@ -1276,8 +1107,8 @@ pipeline {
     stage('L2: Dialogue Generation') {
       when {
         anyOf {
-          branch 'r1.21.0'
-          changeRequest target: 'r1.21.0'
+          branch 'main'
+          changeRequest target: 'main'
         }
       }
       failFast true
@@ -1342,8 +1173,8 @@ pipeline {
 //     stage('L2: Dialogue Generation Part 2') {
 //       when {
 //         anyOf {
-//           branch 'r1.21.0'
-//           changeRequest target: 'r1.21.0'
+//           branch 'main'
+//           changeRequest target: 'main'
 //         }
 //       }
 //       failFast true
@@ -1372,8 +1203,8 @@ pipeline {
     stage('L2: COPY') {
       when {
         anyOf {
-          branch 'r1.21.0'
-          changeRequest target: 'r1.21.0'
+          branch 'main'
+          changeRequest target: 'main'
         }
       }
       failFast true
@@ -1402,8 +1233,8 @@ pipeline {
     stage('L2: Duplex Text Normalization') {
       when {
         anyOf {
-          branch 'r1.21.0'
-          changeRequest target: 'r1.21.0'
+          branch 'main'
+          changeRequest target: 'main'
         }
       }
       failFast true
@@ -1440,8 +1271,8 @@ pipeline {
     // stage('L2: MegaBERT Token Classification') {
     //   when {
     //     anyOf {
-    //       branch 'r1.21.0'
-    //       changeRequest target: 'r1.21.0'
+    //       branch 'main'
+    //       changeRequest target: 'main'
     //     }
     //   }
     //   failFast true
@@ -1466,8 +1297,8 @@ pipeline {
     stage('L2: BERT Text Classification') {
       when {
         anyOf {
-          branch 'r1.21.0'
-          changeRequest target: 'r1.21.0'
+          branch 'main'
+          changeRequest target: 'main'
         }
       }
       failFast true
@@ -1495,8 +1326,8 @@ pipeline {
     stage('L2: Parallel BERT Question-Answering SQUAD v1.1 & v2.0') {
       when {
         anyOf {
-          branch 'r1.21.0'
-          changeRequest target: 'r1.21.0'
+          branch 'main'
+          changeRequest target: 'main'
         }
       }
       failFast true
@@ -1554,8 +1385,8 @@ pipeline {
     stage('L2: Parallel BART Question-Answering SQUAD v1.1 & v2.0') {
       when {
         anyOf {
-          branch 'r1.21.0'
-          changeRequest target: 'r1.21.0'
+          branch 'main'
+          changeRequest target: 'main'
         }
       }
       failFast true
@@ -1615,8 +1446,8 @@ pipeline {
     stage('L2: Parallel GPT2 Question-Answering SQUAD v1.1 & v2.0') {
       when {
         anyOf {
-          branch 'r1.21.0'
-          changeRequest target: 'r1.21.0'
+          branch 'main'
+          changeRequest target: 'main'
         }
       }
       failFast true
@@ -1676,8 +1507,8 @@ pipeline {
     stage('L2: Intent and Slot Classification Tasks') {
       when {
         anyOf {
-          branch 'r1.21.0'
-          changeRequest target: 'r1.21.0'
+          branch 'main'
+          changeRequest target: 'main'
         }
       }
       failFast true
@@ -1716,8 +1547,8 @@ pipeline {
     // stage('L2: Model Parallel Size 2 Megatron Text Classification') {
     //   when {
     //     anyOf{
-    //       branch 'r1.21.0'
-    //       changeRequest target: 'r1.21.0'
+    //       branch 'main'
+    //       changeRequest target: 'main'
     //     }
     //   }
     //   failFast true
@@ -1745,8 +1576,8 @@ pipeline {
     // stage('L2: Model Parallel Size 2 Megatron Autoresume') {
     //   when {
     //     anyOf{
-    //       branch 'r1.21.0'
-    //       changeRequest target: 'r1.21.0'
+    //       branch 'main'
+    //       changeRequest target: 'main'
     //     }
     //   }
     //   failFast true
@@ -1776,8 +1607,8 @@ pipeline {
     // stage('L2: Model Parallel Size 2 Megatron Evaluation from .nemo') {
     //   when {
     //     anyOf{
-    //       branch 'r1.21.0'
-    //       changeRequest target: 'r1.21.0'
+    //       branch 'main'
+    //       changeRequest target: 'main'
     //     }
     //   }
     //   failFast true
@@ -1797,8 +1628,8 @@ pipeline {
     // stage('L2: Model Parallel Size 2 Megatron Train from .nemo') {
     //   when {
     //     anyOf{
-    //       branch 'r1.21.0'
-    //       changeRequest target: 'r1.21.0'
+    //       branch 'main'
+    //       changeRequest target: 'main'
     //     }
     //   }
     //   failFast true
@@ -1820,8 +1651,8 @@ pipeline {
     stage('L2: Parallel NLP Examples 2') {
       when {
         anyOf {
-          branch 'r1.21.0'
-          changeRequest target: 'r1.21.0'
+          branch 'main'
+          changeRequest target: 'main'
         }
       }
       failFast true
@@ -1945,8 +1776,8 @@ pipeline {
     stage('Punctuation & Capitalization tarred dataset') {
       when {
         anyOf {
-          branch 'r1.21.0'
-          changeRequest target: 'r1.21.0'
+          branch 'main'
+          changeRequest target: 'main'
         }
       }
       failFast true
@@ -2004,8 +1835,8 @@ pipeline {
     stage('Punctuation & Capitalization, Different ways of passing labels to model') {
       when {
         anyOf {
-          branch 'r1.21.0'
-          changeRequest target: 'r1.21.0'
+          branch 'main'
+          changeRequest target: 'main'
         }
       }
       failFast true
@@ -2112,8 +1943,8 @@ pipeline {
     stage('Punctuation & Capitalization inference') {
       when {
         anyOf {
-          branch 'r1.21.0'
-          changeRequest target: 'r1.21.0'
+          branch 'main'
+          changeRequest target: 'main'
         }
       }
       failFast true
@@ -2138,8 +1969,8 @@ pipeline {
     stage('L2: Parallel Pretraining BERT pretraining from Text/Preprocessed') {
       when {
         anyOf {
-          branch 'r1.21.0'
-          changeRequest target: 'r1.21.0'
+          branch 'main'
+          changeRequest target: 'main'
         }
       }
       failFast true
@@ -2203,8 +2034,8 @@ pipeline {
     stage('L2: Entity Linking') {
       when {
         anyOf {
-          branch 'r1.21.0'
-          changeRequest target: 'r1.21.0'
+          branch 'main'
+          changeRequest target: 'main'
         }
       }
       failFast true
@@ -2231,8 +2062,8 @@ pipeline {
     stage('L2: NMT Attention is All You Need Training') {
       when {
         anyOf {
-          branch 'r1.21.0'
-          changeRequest target: 'r1.21.0'
+          branch 'main'
+          changeRequest target: 'main'
         }
       }
       failFast true
@@ -2354,8 +2185,8 @@ pipeline {
     stage('L2: NMT Attention is All You Need Inference') {
       when {
         anyOf {
-          branch 'r1.21.0'
-          changeRequest target: 'r1.21.0'
+          branch 'main'
+          changeRequest target: 'main'
         }
       }
       failFast true
@@ -2390,8 +2221,8 @@ pipeline {
     stage('L2: NMT Attention is All You Need Finetuning') {
       when {
         anyOf {
-          branch 'r1.21.0'
-          changeRequest target: 'r1.21.0'
+          branch 'main'
+          changeRequest target: 'main'
         }
       }
       failFast true
@@ -2425,8 +2256,8 @@ pipeline {
     stage('L2: NMT Tarred Dataset Creation') {
       when {
         anyOf {
-          branch 'r1.21.0'
-          changeRequest target: 'r1.21.0'
+          branch 'main'
+          changeRequest target: 'main'
         }
       }
       failFast true
@@ -2479,8 +2310,8 @@ pipeline {
     stage('L2: Megatron NMT Training TP=2') {
       when {
         anyOf {
-          branch 'r1.21.0'
-          changeRequest target: 'r1.21.0'
+          branch 'main'
+          changeRequest target: 'main'
         }
       }
       failFast true
@@ -2580,8 +2411,8 @@ pipeline {
       // Testing Megatron hidden transformations
       when {
         anyOf {
-          branch 'r1.21.0'
-          changeRequest target: 'r1.21.0'
+          branch 'main'
+          changeRequest target: 'main'
         }
       }
       failFast true
@@ -2680,8 +2511,8 @@ pipeline {
     // stage('L2: NMT Bottleneck Fallback') {
     //   when {
     //     anyOf {
-    //       branch 'r1.21.0'
-    //       changeRequest target: 'r1.21.0'
+    //       branch 'main'
+    //       changeRequest target: 'main'
     //     }
     //   }
     //   failFast true
@@ -2727,8 +2558,8 @@ pipeline {
     // stage('L2: NMT Bottleneck Architecture') {
     //   when {
     //     anyOf {
-    //       branch 'r1.21.0'
-    //       changeRequest target: 'r1.21.0'
+    //       branch 'main'
+    //       changeRequest target: 'main'
     //     }
     //   }
     //   failFast true
@@ -2810,8 +2641,8 @@ pipeline {
     // stage('L2: NMT Bottleneck LVM') {
     //   when {
     //     anyOf {
-    //       branch 'r1.21.0'
-    //       changeRequest target: 'r1.21.0'
+    //       branch 'main'
+    //       changeRequest target: 'main'
     //     }
     //   }
     //   failFast true
@@ -2893,8 +2724,8 @@ pipeline {
     stage('L2: Megatron Bert Pretraining and Resume Training with Pipeline Paralleism') {
       when {
         anyOf {
-          branch 'r1.21.0'
-          changeRequest target: 'r1.21.0'
+          branch 'main'
+          changeRequest target: 'main'
         }
       }
       failFast true
@@ -2963,8 +2794,8 @@ pipeline {
     stage('L2: Megatron Bert Pretraining and Resume Training') {
       when {
         anyOf {
-          branch 'r1.21.0'
-          changeRequest target: 'r1.21.0'
+          branch 'main'
+          changeRequest target: 'main'
         }
       }
       failFast true
@@ -3034,8 +2865,8 @@ pipeline {
     stage('L2: Megatron RETRO Pretraining and Resume Training') {
       when {
         anyOf {
-          branch 'r1.21.0'
-          changeRequest target: 'r1.21.0'
+          branch 'main'
+          changeRequest target: 'main'
         }
       }
       failFast true
@@ -3106,8 +2937,8 @@ pipeline {
     stage('L2: Megatron RETRO muTransfer Pretraining Performance') {
       when {
         anyOf {
-          branch 'r1.21.0'
-          changeRequest target: 'r1.21.0'
+          branch 'main'
+          changeRequest target: 'main'
         }
       }
       failFast true
@@ -3189,8 +3020,8 @@ assert_frame_equal(training_curve, gt_curve, rtol=1e-3, atol=1e-3)"'''
     stage('L2: BioMegatron Bert NER Task') {
       when {
         anyOf {
-          branch 'r1.21.0'
-          changeRequest target: 'r1.21.0'
+          branch 'main'
+          changeRequest target: 'main'
         }
       }
       failFast true
@@ -3207,8 +3038,8 @@ assert_frame_equal(training_curve, gt_curve, rtol=1e-3, atol=1e-3)"'''
     stage('L2: Megatron GPT Pretraining and Resume Training TP=2') {
       when {
         anyOf {
-          branch 'r1.21.0'
-          changeRequest target: 'r1.21.0'
+          branch 'main'
+          changeRequest target: 'main'
         }
       }
       failFast true
@@ -3289,8 +3120,8 @@ assert_frame_equal(training_curve, gt_curve, rtol=1e-3, atol=1e-3)"'''
     stage('L2: Megatron GPT with Rope Pretraining and Resume Training TP=2') {
       when {
         anyOf {
-          branch 'r1.21.0'
-          changeRequest target: 'r1.21.0'
+          branch 'main'
+          changeRequest target: 'main'
         }
       }
       failFast true
@@ -3379,8 +3210,8 @@ assert_frame_equal(training_curve, gt_curve, rtol=1e-3, atol=1e-3)"'''
     // stage('L2: Megatron GPT with Rope Pretraining using Flash Attention and Resume Training TP=2') {
     //   when {
     //     anyOf {
-    //       branch 'r1.21.0'
-    //       changeRequest target: 'r1.21.0'
+    //       branch 'main'
+    //       changeRequest target: 'main'
     //     }
     //   }
     //   failFast true
@@ -3468,8 +3299,8 @@ assert_frame_equal(training_curve, gt_curve, rtol=1e-3, atol=1e-3)"'''
     stage('L2: Megatron GPT with ALiBi Pretraining and Resume Training TP=2') {
       when {
         anyOf {
-          branch 'r1.21.0'
-          changeRequest target: 'r1.21.0'
+          branch 'main'
+          changeRequest target: 'main'
         }
       }
       failFast true
@@ -3553,8 +3384,8 @@ assert_frame_equal(training_curve, gt_curve, rtol=1e-3, atol=1e-3)"'''
     stage('L2: Megatron GPT with KERPLE Pretraining and Resume Training TP=2') {
       when {
         anyOf {
-          branch 'r1.21.0'
-          changeRequest target: 'r1.21.0'
+          branch 'main'
+          changeRequest target: 'main'
         }
       }
       failFast true
@@ -3638,8 +3469,8 @@ assert_frame_equal(training_curve, gt_curve, rtol=1e-3, atol=1e-3)"'''
     stage('L2: Megatron GPT Pretraining and Resume Training PP=2') {
       when {
         anyOf {
-          branch 'r1.21.0'
-          changeRequest target: 'r1.21.0'
+          branch 'main'
+          changeRequest target: 'main'
         }
       }
       failFast true
@@ -3723,13 +3554,13 @@ assert_frame_equal(training_curve, gt_curve, rtol=1e-3, atol=1e-3)"'''
     stage('L2: Megatron GPT Finetuning PP=2') {
       when {
         anyOf {
-          branch 'r1.21.0'
-          changeRequest target: 'r1.21.0'
+          branch 'main'
+          changeRequest target: 'main'
         }
       }
       failFast true
       steps {
-        sh "python examples/nlp/language_modeling/tuning/megatron_gpt_sft.py \
+        sh "python examples/nlp/language_modeling/tuning/megatron_gpt_peft_tuning.py \
         trainer.devices=2 \
         trainer.log_every_n_steps=1 \
         trainer.val_check_interval=2 \
@@ -3743,6 +3574,7 @@ assert_frame_equal(training_curve, gt_curve, rtol=1e-3, atol=1e-3)"'''
         model.restore_from_path=/home/TestData/nlp/megatron_gpt/PP2/gpt_pp2_tp1.nemo \
         model.optim.name=fused_adam \
         model.optim.lr=2e-4 \
+        model.peft.peft_scheme=null \
         model.data.train_ds.micro_batch_size=1 \
         model.data.train_ds.global_batch_size=4 \
         model.data.train_ds.file_names=[/home/TestData/nlp/megatron_sft/quarel.jsonl,/home/TestData/nlp/megatron_sft/trec.jsonl] \
@@ -3757,7 +3589,7 @@ assert_frame_equal(training_curve, gt_curve, rtol=1e-3, atol=1e-3)"'''
         model.data.validation_ds.num_workers=0 \
         model.data.validation_ds.file_names=[/home/TestData/nlp/megatron_sft/quarel.jsonl] \
         model.data.validation_ds.names=[quarel]"
-        sh "python examples/nlp/language_modeling/tuning/megatron_gpt_sft.py \
+        sh "python examples/nlp/language_modeling/tuning/megatron_gpt_peft_tuning.py \
         trainer.devices=2 \
         trainer.log_every_n_steps=1 \
         trainer.val_check_interval=1 \
@@ -3771,6 +3603,7 @@ assert_frame_equal(training_curve, gt_curve, rtol=1e-3, atol=1e-3)"'''
         model.restore_from_path=/home/TestData/nlp/megatron_gpt/PP2/gpt_pp2_tp1.nemo \
         model.optim.name=fused_adam \
         model.optim.lr=2e-4 \
+        model.peft.peft_scheme=null \
         model.data.train_ds.micro_batch_size=1 \
         model.data.train_ds.global_batch_size=4 \
         model.data.train_ds.file_names=[/home/TestData/nlp/megatron_sft/quarel.jsonl,/home/TestData/nlp/megatron_sft/trec.jsonl] \
@@ -3788,11 +3621,45 @@ assert_frame_equal(training_curve, gt_curve, rtol=1e-3, atol=1e-3)"'''
         sh "rm -rf examples/nlp/language_modeling/gpt_sft_results"
       }
     }
+    stage('L2: Megatron GPT Finetuning StarCoder PP=1') {
+      when {
+        anyOf {
+          branch 'main'
+          changeRequest target: 'main'
+        }
+      }
+      failFast true
+      steps {
+        sh "python examples/nlp/language_modeling/tuning/megatron_gpt_sft.py \
+        trainer.devices=1 \
+        trainer.num_nodes=1 \
+        trainer.precision=32 \
+        trainer.max_steps=4 \
+        trainer.val_check_interval=4 \
+        trainer.enable_checkpointing=False \
+        +trainer.limit_val_batches=2 \
+        +trainer.limit_test_batches=2 \
+        exp_manager.checkpoint_callback_params.save_best_model=False \
+        exp_manager.exp_dir=examples/nlp/language_modeling/gpt_sft_results \
+        model.optim.name=distributed_fused_adam \
+        model.restore_from_path=/home/TestData/nlp/megatron_gpt/starcoder-ci-nemo/megatron_starcoder_tp1_pp1.nemo \
+        model.tensor_model_parallel_size=1 \
+        model.pipeline_model_parallel_size=1 \
+        model.data.train_ds.file_names=[/home/TestData/nlp/megatron_sft/quarel.jsonl] \
+        model.data.train_ds.num_workers=0 \
+        model.data.test_ds.file_names=[/home/TestData/nlp/megatron_sft/quarel.jsonl] \
+        model.data.validation_ds.num_workers=0 \
+        model.data.validation_ds.file_names=[/home/TestData/nlp/megatron_sft/quarel.jsonl] \
+        model.data.test_ds.num_workers=0 \
+        model.data.train_ds.concat_sampling_probabilities=[1.0]"
+        sh "rm -rf examples/nlp/language_modeling/gpt_sft_results"
+      }
+    }
     stage('L2: Megatron GPT PEFT Lora PP=2') {
       when {
         anyOf {
-          branch 'r1.21.0'
-          changeRequest target: 'r1.21.0'
+          branch 'main'
+          changeRequest target: 'main'
         }
       }
       failFast true
@@ -3826,8 +3693,8 @@ assert_frame_equal(training_curve, gt_curve, rtol=1e-3, atol=1e-3)"'''
     stage('L2: Megatron GPT PEFT Lora TP=2') {
       when {
         anyOf {
-          branch 'r1.21.0'
-          changeRequest target: 'r1.21.0'
+          branch 'main'
+          changeRequest target: 'main'
         }
       }
       failFast true
@@ -3857,14 +3724,15 @@ assert_frame_equal(training_curve, gt_curve, rtol=1e-3, atol=1e-3)"'''
         model.data.validation_ds.names=[quarel]"
         sh "python examples/nlp/language_modeling/tuning/megatron_gpt_peft_eval.py \
         model.restore_from_path=/home/TestData/nlp/megatron_gpt/TP2/megatron_gpt_tp2.nemo \
-        model.peft.restore_from_path=/home/TestData/nlp/lora_tuning_tp2/megatron_gpt_peft_tuning/checkpoints/megatron_gpt_peft_tuning.nemo \
+        model.peft.restore_from_path=/home/TestData/nlp/lora_tuning_tp2/megatron_gpt_peft_lora_tuning/checkpoints/megatron_gpt_peft_lora_tuning.nemo \
         model.peft.restore_from_ckpt_name=null \
         model.peft.restore_from_hparams_path=null \
+        model.tensor_model_parallel_size=2 \
         trainer.devices=2 \
         model.data.test_ds.file_names=[/home/TestData/nlp/megatron_sft/quarel_4.jsonl] \
         model.data.test_ds.names=['quarel4'] \
-        model.data.test_ds.global_batch_size=1 \
-        model.data.test_ds.micro_batch_size=1 \
+        model.global_batch_size=2 \
+        model.micro_batch_size=1 \
         model.data.test_ds.tokens_to_generate=10 \
         model.data.test_ds.write_predictions_to_file=True \
         model.data.test_ds.output_file_path_prefix='/home/TestData/nlp/lora_tuning_tp2/out' \
@@ -3877,8 +3745,8 @@ assert_frame_equal(training_curve, gt_curve, rtol=1e-3, atol=1e-3)"'''
     stage('L2: Megatron GPT Eval') {
       when {
         anyOf {
-          branch 'r1.21.0'
-          changeRequest target: 'r1.21.0'
+          branch 'main'
+          changeRequest target: 'main'
         }
       }
       failFast true
@@ -3894,8 +3762,8 @@ assert_frame_equal(training_curve, gt_curve, rtol=1e-3, atol=1e-3)"'''
     stage('L2: Megatron GPT Eval PP2') {
       when {
         anyOf {
-          branch 'r1.21.0'
-          changeRequest target: 'r1.21.0'
+          branch 'main'
+          changeRequest target: 'main'
         }
       }
       failFast true
@@ -3913,8 +3781,8 @@ assert_frame_equal(training_curve, gt_curve, rtol=1e-3, atol=1e-3)"'''
     stage('L2: Megatron GPT SFT Eval (inference seq len > training seq len)') {
       when {
         anyOf {
-          branch 'r1.21.0'
-          changeRequest target: 'r1.21.0'
+          branch 'main'
+          changeRequest target: 'main'
         }
       }
       failFast true
@@ -3941,8 +3809,8 @@ assert_frame_equal(training_curve, gt_curve, rtol=1e-3, atol=1e-3)"'''
     // stage('L2: Megatron GPT Convert from Megatron-LM checkpoing and Eval') {
     //   when {
     //     anyOf {
-    //       branch 'r1.21.0'
-    //       changeRequest target: 'r1.21.0'
+    //       branch 'main'
+    //       changeRequest target: 'main'
     //     }
     //   }
     //   failFast true
@@ -3968,8 +3836,8 @@ assert_frame_equal(training_curve, gt_curve, rtol=1e-3, atol=1e-3)"'''
     stage('L2: Megatron Change Partitions') {
       when {
         anyOf {
-          branch 'r1.21.0'
-          changeRequest target: 'r1.21.0'
+          branch 'main'
+          changeRequest target: 'main'
         }
       }
       failFast true
@@ -4015,8 +3883,8 @@ assert_frame_equal(training_curve, gt_curve, rtol=1e-3, atol=1e-3)"'''
     stage('L2: Megatron T5 Pretraining and Resume Training TP=2') {
       when {
         anyOf {
-          branch 'r1.21.0'
-          changeRequest target: 'r1.21.0'
+          branch 'main'
+          changeRequest target: 'main'
         }
       }
       failFast true
@@ -4111,8 +3979,8 @@ assert_frame_equal(training_curve, gt_curve, rtol=1e-3, atol=1e-3)"'''
     stage('L2: Megatron T5 with ALiBi Pretraining and Resume Training TP=2') {
       when {
         anyOf {
-          branch 'r1.21.0'
-          changeRequest target: 'r1.21.0'
+          branch 'main'
+          changeRequest target: 'main'
         }
       }
       failFast true
@@ -4207,8 +4075,8 @@ assert_frame_equal(training_curve, gt_curve, rtol=1e-3, atol=1e-3)"'''
     stage('L2: Megatron T5 with KERPLE Pretraining and Resume Training TP=2') {
       when {
         anyOf {
-          branch 'r1.21.0'
-          changeRequest target: 'r1.21.0'
+          branch 'main'
+          changeRequest target: 'main'
         }
       }
       failFast true
@@ -4303,8 +4171,8 @@ assert_frame_equal(training_curve, gt_curve, rtol=1e-3, atol=1e-3)"'''
     stage('L2: Megatron T5 Pretraining and Resume Training PP=2') {
       when {
         anyOf {
-          branch 'r1.21.0'
-          changeRequest target: 'r1.21.0'
+          branch 'main'
+          changeRequest target: 'main'
         }
       }
       failFast true
@@ -4373,8 +4241,8 @@ assert_frame_equal(training_curve, gt_curve, rtol=1e-3, atol=1e-3)"'''
     stage('L2: Megatron T5 w/ Mixture of Expert Pretraining') {
       when {
         anyOf {
-          branch 'r1.21.0'
-          changeRequest target: 'r1.21.0'
+          branch 'main'
+          changeRequest target: 'main'
         }
       }
       failFast true
@@ -4415,141 +4283,11 @@ assert_frame_equal(training_curve, gt_curve, rtol=1e-3, atol=1e-3)"'''
       }
     }
 
-    // commented out to save time in github ci, we have tp>1 and pp>1 tests anyway @adithyare
-    //stage('L2: Megatron T5 Prompt Learning TP1 PP1') {
-    //  when {
-    //    anyOf {
-    //      branch 'r1.21.0'
-    //      changeRequest target: 'r1.21.0'
-    //    }
-    //  }
-    //  failFast true
-    //  parallel{
-    //    stage('T5 Prompt Learning TP=1 PP=1') {
-    //      steps {
-    //        sh "python examples/nlp/language_modeling/megatron_t5_prompt_learning.py \
-    //            --config-name=megatron_t5_prompt_learning \
-    //            name='/home/TestData/nlp/prompt_learning/t5_p_tuning_test' \
-    //            trainer.devices=1 \
-    //            trainer.max_steps=1 \
-    //            trainer.val_check_interval=1 \
-    //            trainer.max_epochs=null \
-    //            model.data.num_workers=1 \
-    //            model.language_model_path='/home/TestData/nlp/megatron_t5/8m/megatron_t5_8m-refactor.nemo' \
-    //            model.existing_tasks=[] \
-    //            model.new_tasks=['squad'] \
-    //            model.data.train_ds=['/home/TestData/nlp/prompt_learning/squad_CI_test.jsonl'] \
-    //            model.data.validation_ds=['/home/TestData/nlp/prompt_learning/squad_CI_test.jsonl'] \
-    //            model.global_batch_size=4 \
-    //            model.micro_batch_size=4"
-    //        sh "rm -rf /home/TestData/nlp/prompt_learning/t5_p_tuning_test"
-    //        sh "python examples/nlp/language_modeling/megatron_t5_prompt_learning_eval.py \
-    //            virtual_prompt_model_file='/home/TestData/nlp/prompt_learning/t5_p_tuning_test.nemo' \
-    //            language_model_path='/home/TestData/nlp/megatron_t5/8m/megatron_t5_8m-refactor.nemo' \
-    //            data.test_ds=['/home/TestData/nlp/prompt_learning/squad_CI_test.jsonl'] \
-    //            pred_file_path='/home/TestData/nlp/prompt_learning/t5_p_tuning_test_preds.txt' \
-    //            data.global_batch_size=4 \
-    //            data.micro_batch_size=4"
-    //        sh "rm -rf /home/TestData/nlp/prompt_learning/t5_p_tuning_test.nemo"
-    //        sh "rm -rf /home/TestData/nlp/prompt_learning/t5_p_tuning_test_preds.txt"
-    //      }
-    //    }
-    //  }
-    //}
-
-    stage('L2: Megatron T5 Prompt Learning TP2 PP1') {
-      when {
-        anyOf {
-          branch 'r1.21.0'
-          changeRequest target: 'r1.21.0'
-        }
-      }
-      failFast true
-      parallel{
-        stage('T5 Prompt Learning TP=2 PP=1') {
-          steps {
-            sh "python examples/nlp/language_modeling/megatron_t5_prompt_learning.py \
-                --config-name=megatron_t5_prompt_learning \
-                name='/home/TestData/nlp/prompt_learning/t5_p_tuning_test_tp2' \
-                trainer.devices=2 \
-                trainer.max_steps=1 \
-                trainer.val_check_interval=1 \
-                trainer.max_epochs=null \
-                model.data.num_workers=1 \
-                model.tensor_model_parallel_size=2 \
-                model.language_model_path='/home/TestData/nlp/megatron_t5/8m/megatron_t5_8m_tp2.nemo' \
-                model.existing_tasks=[] \
-                model.new_tasks=['squad'] \
-                model.data.train_ds=['/home/TestData/nlp/prompt_learning/squad_CI_test.jsonl'] \
-                model.data.validation_ds=['/home/TestData/nlp/prompt_learning/squad_CI_test.jsonl'] \
-                model.global_batch_size=8 \
-                model.micro_batch_size=8"
-            sh "rm -rf /home/TestData/nlp/prompt_learning/t5_p_tuning_test_tp2"
-            sh "python examples/nlp/language_modeling/megatron_t5_prompt_learning_eval.py \
-                virtual_prompt_model_file='/home/TestData/nlp/prompt_learning/t5_p_tuning_test_tp2.nemo' \
-                language_model_path='/home/TestData/nlp/megatron_t5/8m/megatron_t5_8m_tp2.nemo' \
-                data.test_ds=['/home/TestData/nlp/prompt_learning/squad_CI_test.jsonl'] \
-                pred_file_path='/home/TestData/nlp/prompt_learning/t5_p_tuning_test_tp2_preds.txt' \
-                tensor_model_parallel_size=2 \
-                trainer.devices=2 \
-                data.global_batch_size=8 \
-                data.micro_batch_size=8"
-            sh "rm -rf /home/TestData/nlp/prompt_learning/t5_p_tuning_test_tp2.nemo"
-            sh "rm -rf /home/TestData/nlp/prompt_learning/t5_p_tuning_test_tp2_preds.txt"
-          }
-        }
-      }
-    }
-
-    // TODO: add when https://github.com/NVIDIA/apex/pull/1596 is merged
-    // stage('L2: Megatron T5 Prompt Learning TP1 PP2') {
-    //   when {
-    //     anyOf {
-    //       branch 'r1.21.0'
-    //       changeRequest target: 'r1.21.0'
-    //     }
-    //   }
-    //   failFast true
-    //   parallel{
-    //     stage('T5 Prompt Learning TP=1 PP=2') {
-    //       steps {
-    //         sh "python examples/nlp/language_modeling/megatron_t5_prompt_learning.py \
-    //             --config-name=megatron_t5_prompt_learning \
-    //             name='/home/TestData/nlp/prompt_learning/t5_p_tuning_test_pp2' \
-    //             trainer.devices=2 \
-    //             trainer.max_steps=1 \
-    //             trainer.val_check_interval=1 \
-    //             trainer.max_epochs=null \
-    //             model.data.num_workers=1 \
-    //             model.pipeline_model_parallel_size=2 \
-    //             model.language_model_path='/home/TestData/nlp/megatron_t5/8m/megatron_t5_8m_tp1_pp2.nemo' \
-    //             model.existing_tasks=[] \
-    //             model.new_tasks=['squad'] \
-    //             model.data.train_ds=['/home/TestData/nlp/prompt_learning/squad_CI_test.jsonl'] \
-    //             model.data.validation_ds=['/home/TestData/nlp/prompt_learning/squad_CI_test.jsonl'] \
-    //             model.global_batch_size=8 \
-    //             model.micro_batch_size=8"
-    //         sh "rm -rf /home/TestData/nlp/prompt_learning/t5_p_tuning_test_pp2"
-    //         sh "python examples/nlp/language_modeling/megatron_t5_prompt_learning_eval.py \
-    //             virtual_prompt_model_file='/home/TestData/nlp/prompt_learning/t5_p_tuning_test_pp2.nemo' \
-    //             language_model_path='/home/TestData/nlp/megatron_t5/8m/megatron_t5_8m_tp1_pp2.nemo' \
-    //             data.test_ds=['/home/TestData/nlp/prompt_learning/squad_CI_test.jsonl'] \
-    //             pred_file_path='/home/TestData/nlp/prompt_learning/t5_p_tuning_test_pp2_preds.txt' \
-    //             tensor_model_parallel_size=2 \
-    //             trainer.devices=2 \
-    //             data.global_batch_size=8 \
-    //             data.micro_batch_size=8"
-    //         sh "rm -rf /home/TestData/nlp/prompt_learning/t5_p_tuning_test_pp2.nemo"
-    //         sh "rm -rf /home/TestData/nlp/prompt_learning/t5_p_tuning_test_pp2_preds.txt"
-    //       }
-    //     }
-    //   }
-    // }
     stage('L2: Megatron UL2 Pretraining and Resume Training TP=2') {
       when {
         anyOf {
-          branch 'r1.21.0'
-          changeRequest target: 'r1.21.0'
+          branch 'main'
+          changeRequest target: 'main'
         }
       }
       failFast true
@@ -4628,8 +4366,8 @@ assert_frame_equal(training_curve, gt_curve, rtol=1e-3, atol=1e-3)"'''
     stage('L2: Megatron T5 Eval') {
       when {
         anyOf {
-          branch 'r1.21.0'
-          changeRequest target: 'r1.21.0'
+          branch 'main'
+          changeRequest target: 'main'
         }
       }
       failFast true
@@ -4645,8 +4383,8 @@ assert_frame_equal(training_curve, gt_curve, rtol=1e-3, atol=1e-3)"'''
     stage('L2: Megatron BART Pretraining and Resume Training, TP=2') {
       when {
         anyOf {
-          branch 'r1.21.0'
-          changeRequest target: 'r1.21.0'
+          branch 'main'
+          changeRequest target: 'main'
         }
       }
       failFast true
@@ -4714,8 +4452,8 @@ assert_frame_equal(training_curve, gt_curve, rtol=1e-3, atol=1e-3)"'''
     stage('L2: Megatron BART Pretraining and Resume Training, PP=2') {
       when {
         anyOf {
-          branch 'r1.21.0'
-          changeRequest target: 'r1.21.0'
+          branch 'main'
+          changeRequest target: 'main'
         }
       }
       failFast true
@@ -4787,8 +4525,8 @@ assert_frame_equal(training_curve, gt_curve, rtol=1e-3, atol=1e-3)"'''
     stage('L2: Megatron T5 GLUE/XNLI Finetuning') {
       when {
         anyOf {
-          branch 'r1.21.0'
-          changeRequest target: 'r1.21.0'
+          branch 'main'
+          changeRequest target: 'main'
         }
       }
       failFast true
@@ -4857,11 +4595,66 @@ assert_frame_equal(training_curve, gt_curve, rtol=1e-3, atol=1e-3)"'''
         }
       }
     }
+
+    stage('L2: Megatron T5 PEFT Lora TP=2') {
+      when {
+        anyOf {
+          branch 'main'
+          changeRequest target: 'main'
+        }
+      }
+      failFast true
+      steps {
+        sh "rm -rf /home/TestData/nlp/t5_lora_tuning_tp2"
+        sh "python examples/nlp/language_modeling/tuning/megatron_t5_peft_tuning.py \
+        trainer.devices=2 \
+        trainer.log_every_n_steps=1 \
+        trainer.max_epochs=9999 \
+        trainer.max_steps=3 \
+        trainer.val_check_interval=3 \
+        ++trainer.limit_val_batches=2 \
+        trainer.precision=16 \
+        exp_manager.exp_dir=/home/TestData/nlp/t5_lora_tuning_tp2 \
+        model.pipeline_model_parallel_size=1 \
+        model.tensor_model_parallel_size=2 \
+        model.restore_from_path=/home/TestData/nlp/megatron_t5/8m/megatron_t5_8m_tp2.nemo \
+        model.peft.peft_scheme='lora' \
+        model.answer_only_loss=True \
+        model.micro_batch_size=1 \
+        model.global_batch_size=1 \
+        model.data.train_ds.file_names=[/home/TestData/nlp/megatron_sft/quarel.jsonl] \
+        model.data.train_ds.concat_sampling_probabilities=[1.0] \
+        model.data.train_ds.num_workers=0 \
+        model.data.validation_ds.num_workers=0 \
+        model.data.validation_ds.file_names=[/home/TestData/nlp/megatron_sft/quarel.jsonl] \
+        model.data.validation_ds.names=[quarel]"
+        sh "python examples/nlp/language_modeling/tuning/megatron_t5_peft_eval.py \
+        model.restore_from_path=/home/TestData/nlp/megatron_t5/8m/megatron_t5_8m_tp2.nemo \
+        model.peft.restore_from_path=/home/TestData/nlp/t5_lora_tuning_tp2/megatron_t5_peft_lora_tuning/checkpoints/megatron_t5_peft_lora_tuning.nemo \
+        model.peft.restore_from_ckpt_name=null \
+        model.peft.restore_from_hparams_path=null \
+        model.tensor_model_parallel_size=2 \
+        trainer.devices=2 \
+        model.data.test_ds.file_names=[/home/TestData/nlp/megatron_sft/quarel_4.jsonl] \
+        model.data.test_ds.names=['quarel4'] \
+        model.global_batch_size=2 \
+        model.micro_batch_size=1 \
+        model.data.test_ds.tokens_to_generate=10 \
+        model.data.test_ds.write_predictions_to_file=True \
+        model.data.test_ds.output_file_path_prefix='/home/TestData/nlp/t5_lora_tuning_tp2/out' \
+        inference.greedy=True \
+        inference.repetition_penalty=1.0 \
+        inference.outfile_path='/home/TestData/nlp/t5_lora_tuning_tp2/out.jsonl'"
+        sh "rm -rf /home/TestData/nlp/t5_lora_tuning_tp2"
+      }
+    }
+
+
     stage('L2: Megatron Mock Data Generation') {
       when {
         anyOf {
-          branch 'r1.21.0'
-          changeRequest target: 'r1.21.0'
+          branch 'main'
+          changeRequest target: 'main'
         }
       }
       failFast true
@@ -4897,8 +4690,8 @@ assert_frame_equal(training_curve, gt_curve, rtol=1e-3, atol=1e-3)"'''
     stage('L2: TTS Fast dev runs 1') {
       when {
         anyOf {
-          branch 'r1.21.0'
-          changeRequest target: 'r1.21.0'
+          branch 'main'
+          changeRequest target: 'main'
         }
       }
       parallel {
@@ -5043,8 +4836,8 @@ assert_frame_equal(training_curve, gt_curve, rtol=1e-3, atol=1e-3)"'''
     stage('L??: Speech Checkpoints tests') {
       when {
         anyOf {
-          branch 'r1.21.0'
-          changeRequest target: 'r1.21.0'
+          branch 'main'
+          changeRequest target: 'main'
         }
       }
       failFast true
