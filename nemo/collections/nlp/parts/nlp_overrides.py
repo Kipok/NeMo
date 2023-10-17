@@ -271,7 +271,7 @@ class NLPDDPStrategy(DDPStrategy):
         self, checkpoint: Dict[str, Any], filepath: Union[str, Path], storage_options: Optional[Any] = None
     ) -> None:
         app_state = AppState()
-        """ PTL method which we override to accomodate distributed checkpoints and 
+        """ PTL method which we override to accomodate distributed checkpoints and
             the legacy model parallel checkpoints.
 
             When using megatron core, the distributed checkpointing library expects save functions to be
@@ -279,10 +279,11 @@ class NLPDDPStrategy(DDPStrategy):
         """
 
         # check if using distributed checkpointing
-        if (
-            hasattr(self.lightning_module, 'sharded_state_dict')
-            and self.lightning_module.sharded_state_dict() is not None
-        ):
+        # if (
+        #     hasattr(self.lightning_module, 'sharded_state_dict')
+        #     and self.lightning_module.sharded_state_dict() is not None
+        # ):
+        if False:
             # converts the optimizer states to their sharded equivalents
             checkpoint['optimizer_states'] = [self.optimizer_sharded_state_dict()]
 
@@ -310,10 +311,11 @@ class NLPDDPStrategy(DDPStrategy):
 
     def load_model_state_dict(self, checkpoint: Mapping[str, Any]) -> None:
         # if using distributed checkpointing, the state dict logic is at the model level
-        if (
-            hasattr(self.lightning_module, 'sharded_state_dict')
-            and self.lightning_module.sharded_state_dict() is not None
-        ):
+        # if (
+        #     hasattr(self.lightning_module, 'sharded_state_dict')
+        #     and self.lightning_module.sharded_state_dict() is not None
+        # ):
+        if False:
             return
 
         # legacy state dict logic, does not use megatron core
@@ -354,7 +356,7 @@ class NLPDDPStrategy(DDPStrategy):
 
     def load_checkpoint(self, checkpoint_path: Union[str, Path]) -> Dict[str, Any]:
         """ PTL method which we override to integrate distributed checkpoints for model parallel models.
-            In order to load distributed checkpoints we need to provide the sharded_state_dict to 
+            In order to load distributed checkpoints we need to provide the sharded_state_dict to
             the distributed load function. We get the sharded_state_dict from self.lightning_module
             which makes it convenient to have the loading logic happen at the strategy level.
         """
@@ -362,10 +364,11 @@ class NLPDDPStrategy(DDPStrategy):
         fs = get_filesystem(checkpoint_path)
 
         # Check if using distributed checkpointing
-        if (
-            hasattr(self.lightning_module, 'sharded_state_dict')
-            and self.lightning_module.sharded_state_dict() is not None
-        ):
+        # if (
+        #     hasattr(self.lightning_module, 'sharded_state_dict')
+        #     and self.lightning_module.sharded_state_dict() is not None
+        # ):
+        if False:
 
             # Distributed checkpoints must be directories.
             if not fs.isdir(checkpoint_path):
@@ -396,10 +399,11 @@ class NLPDDPStrategy(DDPStrategy):
 
     def remove_checkpoint(self, filepath: Union[str, Path]) -> None:
         # check if filepath is a distributed checkpoint
-        if (
-            hasattr(self.lightning_module, 'sharded_state_dict')
-            and self.lightning_module.sharded_state_dict() is not None
-        ):
+        # if (
+        #     hasattr(self.lightning_module, 'sharded_state_dict')
+        #     and self.lightning_module.sharded_state_dict() is not None
+        # ):
+        if False:
             if self.is_global_zero:
                 shutil.rmtree(ckpt_to_dir(filepath))
 
@@ -430,7 +434,7 @@ class NLPDDPStrategy(DDPStrategy):
     @property
     def restore_checkpoint_after_setup(self) -> bool:
         """ This needs to be True for distributed checkpointing because
-            we require the model to have configured the optimizer before 
+            we require the model to have configured the optimizer before
             deserializing the checkpoint.
         """
         return True
