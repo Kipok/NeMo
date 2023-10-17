@@ -1315,7 +1315,7 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
         """
 
         # mcore uses distributed checkpointing
-        if self.mcore_gpt:
+        if False:
             checkpoint['sharded_state_dict'] = self.sharded_state_dict()
 
         # legacy checkpointing for interleaved
@@ -1332,7 +1332,7 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
         """
 
         # mcore uses distributed checkpointing
-        if self.mcore_gpt:
+        if False:
             if 'state_dict' in checkpoint and checkpoint['state_dict']:
                 for index, module in enumerate(self.get_gpt_module_list()):
                     if parallel_state.get_virtual_pipeline_model_parallel_world_size() is not None:
@@ -1366,7 +1366,7 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
         The sharded tensor mapping is defined in the GPTModel class from mcore.
         """
 
-        if self.mcore_gpt:
+        if False:
             module_prefix = f'{prefix}model.'
             sharded_state_dict = {}
             for index, module in enumerate(self.get_gpt_module_list()):
