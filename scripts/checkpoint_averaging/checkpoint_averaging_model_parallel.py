@@ -38,6 +38,7 @@ to convert .ckpt checkpoint to .nemo format.
 """
 
 import argparse
+import io
 import os
 
 import torch
@@ -89,12 +90,17 @@ def main():
             else:
                 # Accumulated state
                 for k in avg_state:
-                    avg_state[k] = avg_state[k] + checkpoint[k]
+                    if isinstance(avg_state[k], io.BytesIO):
+                        print("skipping state", k)
+                    else:
+                        avg_state[k] = avg_state[k] + checkpoint[k]
 
                 logging.info(f"Updated average state dict with state from checkpoint : {path}")
 
         for k in avg_state:
-            if str(avg_state[k].dtype).startswith("torch.int"):
+            if isinstance(avg_state[k], io.BytesIO):
+                print('skipping avg', k)
+            elif str(avg_state[k].dtype).startswith("torch.int"):
                 # For int type, not averaged, but only accumulated.
                 # e.g. BatchNorm.num_batches_tracked
                 pass
