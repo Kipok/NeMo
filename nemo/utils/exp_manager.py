@@ -299,7 +299,7 @@ def exp_manager(trainer: 'pytorch_lightning.Trainer', cfg: Optional[Union[DictCo
                 Set this to True if you are using DDP with many GPUs and do not want many log files in your exp dir.
             - log_global_rank_0_only (bool): Whether to only create log files for global rank 0. Defaults to False.
                 Set this to True if you are using DDP with many GPUs and do not want many log files in your exp dir.
-            - max_time (str): The maximum wall clock time *per run*. This is intended to be used on clusters where you want 
+            - max_time (str): The maximum wall clock time *per run*. This is intended to be used on clusters where you want
                 a checkpoint to be saved after this specified time and be able to resume from that checkpoint. Defaults to None.
 
     returns:
@@ -949,6 +949,18 @@ class StatelessTimer(Timer):
 
     def load_state_dict(self, state_dict: Dict[str, Any]) -> None:
         return
+
+    def _check_time_remaining(self, trainer: "pl.Trainer") -> None:
+        super()._check_time_remaining(trainer)
+        if trainer.should_stop:
+            checkpoint_callback: Optional[NeMoModelCheckpoint] = trainer.checkpoint_callback
+            if checkpoint_callback:
+                monitor_candidates = checkpoint_callback._monitor_candidates(trainer)
+                checkpoint_callback._save_last_checkpoint(trainer, monitor_candidates)
+            # Throw this exception to signal to Lightning to terminate gracefully.
+            from pytorch_lightning.utilities.exceptions import _TunerExitException
+
+            raise _TunerExitException()
 
 
 def configure_no_restart_validation_training_loop(trainer: pytorch_lightning.Trainer) -> None:
