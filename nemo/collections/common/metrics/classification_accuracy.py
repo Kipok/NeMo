@@ -13,6 +13,8 @@
 # limitations under the License.
 
 import logging
+import subprocess
+from pathlib import Path
 import re
 import string
 from collections import Counter
@@ -21,7 +23,41 @@ from typing import List, Union
 import torch
 from torchmetrics import Metric
 
-__all__ = ['TopKClassificationAccuracy']
+from nemo.collections.common.metrics.execution import get_result
+
+__all__ = ['TopKClassificationAccuracy', 'CodeGenerationAccuracy']
+
+
+class CodeGenerationAccuracy(Metric):
+    """How many programs match the right answer."""
+    def __init__(self, dist_sync_on_step=False, *args, **kwargs):
+        super().__init__(dist_sync_on_step=dist_sync_on_step)
+        self.add_state("correct", default=torch.tensor(0.0), dist_reduce_fx="sum")
+        self.add_state("total", default=torch.tensor(0), dist_reduce_fx="sum")
+    def update(self, pred: str, target):
+        if '<extra_id_1>' in pred:
+            pred = pred.split('<extra_id_1>')[0].strip()
+        pred = pred.replace('\n', '\\n')
+        target = str(target)
+        try:
+            p = subprocess.run(
+                f'python {Path(__file__).absolute().parent / "execution.py"}',
+                input=(pred + '|||' + target),
+                capture_output=True,
+                text=True,
+                shell=True,
+                check=True,
+            )
+            correct = p.stdout.strip() == "True"
+        except Exception as e:
+            print("Some error occured during code verification!")
+            print(e)
+            correct = False
+        self.correct += correct
+        self.total += 1
+
+    def compute(self):
+        return self.correct.float() / self.total
 
 
 class TopKClassificationAccuracy(Metric):
@@ -52,7 +88,7 @@ class TopKClassificationAccuracy(Metric):
             tensorboard_log = {'val_loss': val_loss_mean}
             for top_k, score in zip(self._accuracy.top_k, topk_scores):
                 tensorboard_log['val_epoch_top@{}'.format(top_k)] = score
-            
+
             self.val_outputs.clear()  # free memory
             return {'log': tensorboard_log}
 

@@ -15,7 +15,7 @@
 from torchmetrics import Accuracy, AveragePrecision, F1Score, MatthewsCorrCoef, PearsonCorrCoef, SpearmanCorrCoef
 from torchmetrics.text.rouge import ROUGEScore
 
-from nemo.collections.common.metrics.classification_accuracy import ExactStringMatchMetric, TokenF1Score
+from nemo.collections.common.metrics.classification_accuracy import ExactStringMatchMetric, TokenF1Score, CodeGenerationAccuracy
 
 __all__ = ['MetricStringToTorchMetric']
 
@@ -24,6 +24,7 @@ __all__ = ['MetricStringToTorchMetric']
 MetricStringToTorchMetric = {
     'accuracy': Accuracy,
     'average_precision': AveragePrecision,
+    'code_accuracy': CodeGenerationAccuracy,
     'f1': F1Score,
     'token_f1': TokenF1Score,
     'pearson_corr_coef': PearsonCorrCoef,
