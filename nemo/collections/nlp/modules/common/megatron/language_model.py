@@ -104,6 +104,7 @@ def get_language_model(
     attention_type='multihead',
     share_embeddings_and_output_weights=True,
     rotary_percentage=1.0,
+    rotary_base: float = 10000,
     multi_query_attention=False,
     bias_dropout_add_fusion=True,
     bias=True,
@@ -175,6 +176,7 @@ def get_language_model(
         bias_dropout_add_fusion=bias_dropout_add_fusion,
         bias=bias,
         rotary_percentage=rotary_percentage,
+        rotary_base=rotary_base,
         share_embeddings_and_output_weights=share_embeddings_and_output_weights,
         masked_softmax_fusion=masked_softmax_fusion,
         activation=activation,
@@ -481,6 +483,7 @@ class TransformerLanguageModel(MegatronModule, adapter_mixins.AdapterModuleMixin
         normalize_attention_scores=True,
         position_embedding_type='learned_absolute',
         rotary_percentage=1.0,
+        rotary_base: float = 10000,
         multi_query_attention=False,
         share_embeddings_and_output_weights=True,
         persist_layer_norm=False,
@@ -554,7 +557,7 @@ class TransformerLanguageModel(MegatronModule, adapter_mixins.AdapterModuleMixin
             if rotary_percentage < 1:
                 rotary_dim = int(rotary_dim * rotary_percentage)
             self.rotary_pos_emb = RotaryEmbedding(
-                rotary_dim, seq_len_interpolation_factor=seq_len_interpolation_factor
+                rotary_dim, seq_len_interpolation_factor=seq_len_interpolation_factor, rotary_base=rotary_base,
             )
 
         elif position_embedding_type == 'alibi':
