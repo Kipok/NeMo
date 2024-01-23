@@ -349,12 +349,15 @@ def send_generate_info(
     repetition_penalty,
     min_tokens_to_generate,
     end_strings,
+    random_seed,
 ):
     """
     Needs to be synced up with receive_generate_info
     """
     model_parallel_group = parallel_state.get_model_parallel_group()
     src = get_model_parallel_src_rank()
+    if random_seed is None:
+        random_seed = -1  # to be able to convert to float
     # Send the sizes of the tensors
     input_info = [
         context_tokens_tensor.size(0),  # batch_size
@@ -368,6 +371,7 @@ def send_generate_info(
         greedy,
         repetition_penalty,
         min_tokens_to_generate,
+        random_seed,
     ]
     input_info_tensor = torch.cuda.FloatTensor(input_info)
     torch.distributed.broadcast(input_info_tensor, src, model_parallel_group)
@@ -391,7 +395,7 @@ def receive_generate_info():
     """
     model_parallel_group = parallel_state.get_model_parallel_group()
     src = get_model_parallel_src_rank()
-    input_info_tensor = torch.empty(11, dtype=torch.float32, device=torch.cuda.current_device())
+    input_info_tensor = torch.empty(12, dtype=torch.float32, device=torch.cuda.current_device())
     torch.distributed.broadcast(input_info_tensor, src, model_parallel_group)
     batch_size = int(input_info_tensor[0].item())
     seq_len = int(input_info_tensor[1].item())
@@ -404,6 +408,9 @@ def receive_generate_info():
     greedy = bool(input_info_tensor[8].item())
     repetition_penalty = float(input_info_tensor[9].item())
     min_tokens_to_generate = int(input_info_tensor[10].item())
+    random_seed = int(random_seed[11].item())
+    if random_seed == -1:  # was converted to -1 before broadcast
+        random_seed = None
 
     context_length_tensor = torch.empty(batch_size, dtype=torch.int64, device=torch.cuda.current_device())
     context_tokens_tensor = torch.empty(batch_size, seq_len, dtype=torch.int64, device=torch.cuda.current_device())
@@ -432,6 +439,7 @@ def receive_generate_info():
         repetition_penalty,
         min_tokens_to_generate,
         end_strings,
+        random_seed,
     )
 
 
@@ -575,9 +583,6 @@ def generate(
             token_ids: List[Tensor], output sentence token ids
             offsets: List[List[int]]  # list of tokens start positions in text
     """
-    if random_seed is not None:
-        seed_everything(random_seed)
-
     if 'strategy' in strategy_args:
         inference_strategy = strategy_args['strategy']
     else:
@@ -604,6 +609,7 @@ def generate(
             repetition_penalty,
             min_tokens_to_generate,
             end_strings,
+            random_seed,
         )
     else:
         (
@@ -619,7 +625,11 @@ def generate(
             repetition_penalty,
             min_tokens_to_generate,
             end_strings,
+            random_seed,
         ) = receive_generate_info()
+
+    if random_seed is not None:
+        seed_everything(random_seed)
 
     output = synced_generate(
         model,
