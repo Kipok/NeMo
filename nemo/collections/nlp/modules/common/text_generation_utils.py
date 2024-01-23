@@ -408,7 +408,7 @@ def receive_generate_info():
     greedy = bool(input_info_tensor[8].item())
     repetition_penalty = float(input_info_tensor[9].item())
     min_tokens_to_generate = int(input_info_tensor[10].item())
-    random_seed = int(random_seed[11].item())
+    random_seed = int(input_info_tensor[11].item())
     if random_seed == -1:  # was converted to -1 before broadcast
         random_seed = None
 
