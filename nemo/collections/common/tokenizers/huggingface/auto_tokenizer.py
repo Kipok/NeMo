@@ -169,6 +169,9 @@ class AutoTokenizer(TokenizerSpec):
         self.space_sensitive = self.text_to_tokens('x y') != self.text_to_tokens('x') + self.text_to_tokens('y')
         self._inv_vocab_dict = {}
 
+    def apply_chat_template(self, *args, **kwargs):
+        return self.tokenizer.apply_chat_template(*args, **kwargs)
+
     @property
     def vocab_size(self):
         return len(self.tokenizer)

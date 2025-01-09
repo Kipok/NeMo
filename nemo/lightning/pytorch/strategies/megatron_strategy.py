@@ -199,7 +199,7 @@ class MegatronStrategy(DDPStrategy, io.IOMixin):
         lazy_init: bool = False,
         pipeline_dtype: Optional[torch.dtype] = None,
         save_ckpt_format: str = "torch_dist",
-        ckpt_async_save: bool = True,
+        ckpt_async_save: bool = False, #True,
         ckpt_torch_dist_multiproc: int = None,  ## TODO(ashors): put elsewhere?
         ckpt_assume_constant_structure: bool = False,
         ckpt_parallel_save: bool = True,
